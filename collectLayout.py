@@ -30,7 +30,7 @@ class PanelData(DB):
     def __init__(self):
         self.table = 'paneldata'
         DB.__init__(self)
-        self.notPanels = ['114844043', '114496154', '1234567']
+        self.notPanels = ['114844043', '114496154', siteid]
         if debug:
             #self.c.execute('DROP TABLE IF EXISTS ' + self.table)
             pass
