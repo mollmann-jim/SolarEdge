@@ -6,7 +6,6 @@ import sqlite3
 import requests
 
 DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
-siteid = '1234567'
 debug = False
 
 from math import cos,sin,acos,asin,tan  
