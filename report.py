@@ -57,39 +57,51 @@ def printHeader():
     
 def makeSection(c, title, byDay = False, byMonth = False, year = None):
     start, end, name = getTimeInterval.getPeriod(title, year = year)
-    select_sum = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
-        'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, ' +\
-        'TOTAL(selfconsumption) AS selfconsumption FROM energy_day WHERE ' +\
-        'timestamp >= ? AND timestamp <= ?;'
-    select_avg = 'SELECT AVG(production) AS production, AVG(consumption) AS consumption, ' +\
-        'AVG(feedin) AS feedin, AVG(purchased) AS purchased, ' +\
-        'AVG(selfconsumption) AS selfconsumption FROM energy_day WHERE ' +\
-        'timestamp >= ? AND timestamp <= ?;'
-    select_min = 'SELECT MIN(production) AS production, MIN(consumption) AS consumption, ' +\
-        'MIN(feedin) AS feedin, MIN(purchased) AS purchased, ' +\
-        'MIN(selfconsumption) AS selfconsumption FROM energy_day WHERE ' +\
-        'timestamp >= ? AND timestamp <= ?;'
-    select_max = 'SELECT MAX(production) AS production, MAX(consumption) AS consumption, ' +\
-        'MAX(feedin) AS feedin, MAX(purchased) AS purchased, ' +\
-        'MAX(selfconsumption) AS selfconsumption FROM energy_day WHERE ' +\
-        'timestamp >= ? AND timestamp <= ?;'
+    #print(start, end, name)
+    select_sum = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
+        'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, ' \
+        'TOTAL(selfconsumption) AS selfconsumption, date(timestamp) AS date ' \
+        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+    select_avg = 'SELECT AVG(production) AS production, AVG(consumption) AS consumption, ' \
+        'AVG(feedin) AS feedin, AVG(purchased) AS purchased, ' \
+        'AVG(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
+        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+    select_min = 'SELECT MIN(production) AS production, MIN(consumption) AS consumption, ' \
+        'MIN(feedin) AS feedin, MIN(purchased) AS purchased, ' \
+        'MIN(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
+        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+    select_max = 'SELECT MAX(production) AS production, MAX(consumption) AS consumption, ' \
+        'MAX(feedin) AS feedin, MAX(purchased) AS purchased, ' \
+        'MAX(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
+        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' 
+    groupMonth = ' GROUP BY substr(timestamp,1, 7) ORDER BY timestamp DESC;'
+    if byMonth:
+        select_sum = select_sum + groupMonth
+        select_avg = select_avg + groupMonth
+        select_min = select_min + groupMonth
+        select_max = select_max + groupMonth
+    else:
+        select_sum += ' ;' 
+        select_avg += ' ;'
+        select_min += ' ;'
+        select_max += ' ;'
     c.execute(select_sum, (start, end))
-    result = c.fetchall()
-    for record in result:
-        print(fmtLine('Total ' + name, record))
+    sums = c.fetchall()
     c.execute(select_avg, (start, end))
-    result = c.fetchall()
-    for record in result:
-        print(fmtLine('Average ' + name, record))
+    avgs = c.fetchall()
     c.execute(select_min, (start, end))
-    result = c.fetchall()
-    for record in result:
-        print(fmtLine('Minimum ' + name, record))
+    mins = c.fetchall()
     c.execute(select_max, (start, end))
-    result = c.fetchall()
-    for record in result:
-        print(fmtLine('Maximum ' + name, record))  
-    print(' ')
+    maxs = c.fetchall()
+    titles = ['Total ' + name,' Average ' + name, 'Minimum ' + name, 'Maximum ' + name]
+    titles = ['Total ', ' Average ', 'Minimum ', 'Maximum ']
+    results = [sums, avgs, mins, maxs]
+    for sum, avg, min, max in zip(sums, avgs, mins, maxs):
+        for record, title in zip([sum, avg, min, max], titles):
+            if byMonth: name = record['date'][0:7]
+            print(fmtLine(title + name, record))
+        if byMonth: print('')
+    print('')
     
 def main():
     db = sqlite3.connect(DBname)
@@ -120,15 +132,23 @@ def main():
         print(fmtLine(record['timestamp'], record))
     print(' ')
 
+    #db.set_trace_callback(print)
+
     printHeader() 
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
         makeSection(c, period)
-
-    first, last = getYears(c)
+        
+    printHeader()
+    makeSection(c, 'YearByMonth', byMonth = True)
+    makeSection(c, 'LastYear')
     
+    printHeader()
+    first, last = getYears(c)
     for year in range(last.year, first.year - 1, -1):
         makeSection(c, 'Year', year = year)
 
+    printHeader()
+    makeSection(c, 'All')
     
 if __name__ == '__main__':
   main()
