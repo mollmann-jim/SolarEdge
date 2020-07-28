@@ -3,6 +3,9 @@ from se_api import Solaredge, _fmt_date
 import testdata
 import datetime as dt
 import sqlite3
+from sys import path
+path.append('/home/jim/tools/')
+from shared import getTimeInterval
 
 DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
 debug = False
@@ -13,13 +16,16 @@ columns = ['consumption', 'production', 'purchased', 'feedin', \
                         'selfconsumption', 'timestamp']
 Columns = ['Consumption', 'Production', 'Purchased', 'FeedIn', \
                         'SelfConsumption', 'Timestamp']
-def getPrev7days():
-    now   = dt.datetime.now()
-    end   = now.replace(hour = 23, minute = 59, second = 0, microsecond = 0) - \
-        dt.timedelta(days = 1)
-    start = now.replace(hour = 0, minute = 0, second =0, microsecond = 0) - \
-        dt.timedelta(days = 7)
-    return start, end
+def getYears(c):
+    select_min_yr = 'SELECT min(timestamp) AS min FROM energy_day;'
+    c.execute(select_min_yr)
+    min = c.fetchone()
+    first = dt.datetime.strptime(min['min'], '%Y-%m-%d %H:%M:%S')
+    select_max_yr = 'SELECT max(timestamp) AS max FROM energy_day;'
+    c.execute(select_max_yr)
+    max = c.fetchone()
+    last = dt.datetime.strptime(max['max'], '%Y-%m-%d %H:%M:%S')
+    return first, last
 
 def getYesterday():
     now   = dt.datetime.now()
@@ -27,47 +33,6 @@ def getYesterday():
         dt.timedelta(days = 1)
     yesterday = dt.datetime.date(day)
     return str(yesterday)
-    
-def getThisWeek():
-    now   = dt.datetime.now()
-    end   = now.replace(hour = 23, minute = 59, second = 0, microsecond = 0) - \
-        dt.timedelta(days = 1)
-    start = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0) - \
-        dt.timedelta(days = now.weekday())
-    #print('this week', start, end)
-    return start, end
-
-def getLastWeek():
-    now   = dt.datetime.now()
-    end   = now.replace(hour = 23, minute = 59, second = 0, microsecond = 0) - \
-        dt.timedelta(days = 1 + now.weekday())
-    start = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0) - \
-        dt.timedelta(days = 7 + now.weekday())
-    #print('last week', start, end)
-    return start, end
-
-def getThisMonth():
-    now   = dt.datetime.now()
-    end   = dt.datetime(now.year, now.month + 1, 1) - dt.timedelta(seconds = 1)
-    start = now.replace(day = 1, hour = 0, minute = 0, second = 0, microsecond = 0)
-    #print('this month', start, end)
-    return start, end
-
-def getLastMonth():
-    now   = dt.datetime.now()
-    end   = dt.datetime(now.year, now.month, 1) - dt.timedelta(seconds = 1)
-    month = now.month - 1
-    if month < 1: month = 12
-    start = dt.datetime(now.year, month, 1)
-    #print('last month', start, end)
-    return start, end
-
-def getYear(year):
-    end   = dt.datetime(year = year + 1, month = 1, day = 1) - \
-        dt.timedelta(seconds = 1)
-    start =  dt.datetime(year = year, month = 1, day = 1)
-    #print(year, ':', start, end)
-    return start, end
 
 def fmtLine(tag, row):
     line = tag + ': (none)'
@@ -90,8 +55,8 @@ def printHeader():
     print('------------------- ----------  ---------- -------- -------- -------- ---------')
     #...... Maximum This Month      63.90       86.75     73.7    37.35    51.96     39.16
     
-def makeSection(c, period, title):
-    start, end = period
+def makeSection(c, title, byDay = False, byMonth = False, year = None):
+    start, end, name = getTimeInterval.getPeriod(title, year = year)
     select_sum = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
         'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, ' +\
         'TOTAL(selfconsumption) AS selfconsumption FROM energy_day WHERE ' +\
@@ -111,19 +76,19 @@ def makeSection(c, period, title):
     c.execute(select_sum, (start, end))
     result = c.fetchall()
     for record in result:
-        print(fmtLine('Total ' + title, record))
+        print(fmtLine('Total ' + name, record))
     c.execute(select_avg, (start, end))
     result = c.fetchall()
     for record in result:
-        print(fmtLine('Average ' + title, record))
+        print(fmtLine('Average ' + name, record))
     c.execute(select_min, (start, end))
     result = c.fetchall()
     for record in result:
-        print(fmtLine('Minimum ' + title, record))
+        print(fmtLine('Minimum ' + name, record))
     c.execute(select_max, (start, end))
     result = c.fetchall()
     for record in result:
-        print(fmtLine('Maximum ' + title, record))  
+        print(fmtLine('Maximum ' + name, record))  
     print(' ')
     
 def main():
@@ -131,8 +96,7 @@ def main():
     db.row_factory = sqlite3.Row
     c = db.cursor()
     
-    start, end = getPrev7days()
-
+    start, end, name = getTimeInterval.getPeriod('Prev7days')
     printHeader()
     
     select = 'SELECT * FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' +\
@@ -157,21 +121,13 @@ def main():
     print(' ')
 
     printHeader() 
-    makeSection(c, getThisWeek(),  'This Week')
-    makeSection(c, getLastWeek(),  'Last Week')
-    makeSection(c, getThisMonth(), 'This Month')
-    makeSection(c, getLastMonth(), 'Last Month')
-        
-    select_min_yr = 'SELECT min(timestamp) AS min FROM energy_day;'
-    c.execute(select_min_yr)
-    min = c.fetchone()
-    first = dt.datetime.strptime(min['min'], '%Y-%m-%d %H:%M:%S')
-    select_max_yr = 'SELECT max(timestamp) AS max FROM energy_day;'
-    c.execute(select_max_yr)
-    max = c.fetchone()
-    last = dt.datetime.strptime(max['max'], '%Y-%m-%d %H:%M:%S')
+    for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
+        makeSection(c, period)
+
+    first, last = getYears(c)
+    
     for year in range(last.year, first.year - 1, -1):
-        makeSection(c, getYear(year), '{:4d}'.format(year))
+        makeSection(c, 'Year', year = year)
 
     
 if __name__ == '__main__':
