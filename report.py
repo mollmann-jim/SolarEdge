@@ -38,9 +38,10 @@ def fmtLine(tag, row):
     line = tag + ': (none)'
     if row['Consumption']:
         header  =  '{:>19s}'.format(tag)
-        prod    = ' {:>10.2f}'.format(row['Production'] / 1000)
+        Prod    = row['Production'] if row['Production'] is not None else 0.0
+        prod    = ' {:>10.2f}'.format(Prod / 1000)
         used    = ' {:>11.2f}'.format(row['Consumption'] / 1000)
-        percent = ' {:>8.1f}'.format(row['Production'] / row['Consumption'] * 100)
+        percent = ' {:>8.1f}'.format(Prod / row['Consumption'] * 100)
         sold    = ' {:>8.2f}'.format(row['FeedIn'] / 1000)
         bought  = ' {:>8.2f}'.format(row['Purchased'] / 1000)
         selfcon = ' {:>9.2f}'.format(row['SelfConsumption'] / 1000)
