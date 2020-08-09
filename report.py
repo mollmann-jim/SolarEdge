@@ -78,27 +78,18 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' 
     groupMonth = ' GROUP BY substr(timestamp,1, 7) ORDER BY timestamp DESC;'
     if byMonth:
-        select_sum = select_sum + groupMonth
-        select_avg = select_avg + groupMonth
-        select_min = select_min + groupMonth
-        select_max = select_max + groupMonth
+        select_end = groupMonth
     else:
-        select_sum += ' ;' 
-        select_avg += ' ;'
-        select_min += ' ;'
-        select_max += ' ;'
-    c.execute(select_sum, (start, end))
-    sums = c.fetchall()
-    c.execute(select_avg, (start, end))
-    avgs = c.fetchall()
-    c.execute(select_min, (start, end))
-    mins = c.fetchall()
-    c.execute(select_max, (start, end))
-    maxs = c.fetchall()
-    titles = ['Total ' + name,' Average ' + name, 'Minimum ' + name, 'Maximum ' + name]
+        select_end = ' ;'
+    results = []
+    for select in [select_sum, select_avg, select_min, select_max]:
+        select += select_end
+        c.execute(select, (start, end))
+        result = c.fetchall()
+        results.append(result)
+                               
     titles = ['Total ', ' Average ', 'Minimum ', 'Maximum ']
-    results = [sums, avgs, mins, maxs]
-    for sum, avg, min, max in zip(sums, avgs, mins, maxs):
+    for sum, avg, min, max in zip(*results):
         for record, title in zip([sum, avg, min, max], titles):
             if byMonth: name = record['date'][0:7]
             print(fmtLine(title + name, record))
