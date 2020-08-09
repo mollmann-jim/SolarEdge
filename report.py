@@ -49,6 +49,7 @@ def fmtLine(tag, row):
     return line
 
 def printHeader():
+    print('')
     #       Average This Month 1234567890 12345678901 12345678 12345678 12345678 123456789
     #        mm/dd/yyyy        1234567890 12345678901 12345678 12345678 12345678 123456789
     print('                    Production Consumption              Sold   Bought Prod-Used')
@@ -103,11 +104,96 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
             print(fmtLine(title + name, record))
         if byMonth: print('')
     print('')
+
+def reportByHour(c):
+    periods = ['Yesterday', 'Prev7days', 'Last30Days', 'All']
+    prodFields = ['AvgProd', 'MaxProd']
+    usedFields = ['AvgUsed', 'MaxUsed']
+    dataFields = prodFields + usedFields
+    starts = {}
+    ends   = {}
+    for period in periods:
+        starts[period], ends[period], name = getTimeInterval.getPeriod(period)
+    selectHour = 'SELECT count(*) AS count, hours.date as date, hours.hour as hour, ' \
+        ' AVG(hours.production)  AS AvgProd,  MAX(hours.production)  AS MaxProd, ' \
+        ' AVG(hours.consumption) AS AvgUsed,  MAX(hours.consumption) AS MaxUsed  ' \
+        ' FROM ( ' \
+        '     SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
+        '     date(timestamp) as date, STRFTIME("%H", timestamp) as hour ' \
+        '     FROM energy_details ' \
+        '     WHERE timestamp >= ? AND timestamp <= ? ' \
+ 	'     GROUP BY date, STRFTIME("%H", timestamp) ' \
+	' )		 AS hours '\
+	' GROUP BY hour ORDER BY hour;'
+    selectCumm = 'SELECT count(*) AS count, hours.date as date, hours.hour as hour, ' \
+        ' AVG(hours.production)  AS AvgProd,  MAX(hours.production)  AS MaxProd, ' \
+        ' AVG(hours.consumption) AS AvgUsed,  MAX(hours.consumption) AS MaxUsed  ' \
+        ' FROM ( ' \
+        '     SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
+        '     date(timestamp) as date, STRFTIME("%H", timestamp) as hour ' \
+        '     FROM energy_details ' \
+        '     WHERE timestamp >= ? AND timestamp <= ? ' \
+        '       AND STRFTIME("%H", timestamp) <= ? ' \
+ 	'     GROUP BY date ' \
+	' )		 AS hours '\
+	' GROUP BY hour ORDER BY hour;'
+
+    hourData = {}
+    for period in periods:
+        hourData[period] = {}
+        c.execute(selectHour, (starts[period], ends[period]))
+        results = c.fetchall()
+        for rec in results:
+            hour = rec['hour']
+            hourData[period][hour] = {}
+            for field in dataFields:
+                hourData[period][hour][field] = rec[field]
     
+    cummData = {}
+    for period in periods:
+        cummData[period] = {}
+        for hour in range(0,24):
+             hr = '{:02d}'.format(hour)
+             cummData[period][hr] = {}
+             c.execute(selectCumm, (starts[period], ends[period], hr))
+             results = c.fetchall()
+             for rec in results:
+                 for field in dataFields:
+                     cummData[period][hr][field] = rec[field] / 1000.0
+    #print(cummData)
+
+    Hdr = [None] * 4
+    fmt1 = '{:^' + str(12 * 2 * len(periods)) + '}'
+    fmt2 = '{:^' + str( 6 * 2 * len(periods)) + '}'
+    fmt2 += fmt2
+    fmt3 = ''.join(['{:>11s} '.format(p) for p in periods])
+    fmt3 += fmt3
+    Hdr = [None] * 4
+    Hdr[0] = '' 
+    Hdr[2] = '    ' + fmt2.format('Average', 'Maximum')
+    Hdr[3] = 'Time' + fmt3
+    for type, unit, numfmt, data in zip(['Hourly ', 'Cummulative '], \
+                                        [' (Wh)', ' (KWh)'], \
+                                        ['{:>11.0f} ', '{:>11.3f} '], \
+                                        [hourData, cummData]):
+        for pu, fld in zip(['Production', 'Consumption'], \
+                           [prodFields, usedFields]):
+            Hdr[1] = '    ' + fmt1.format(type + pu + unit)
+            for line in Hdr:
+                print(line)
+            for hour in range(0, 24):
+                hr = '{:02d}'.format(hour)
+                l = '{:02d}00'.format(hour)
+                for field in fld:
+                    for period in periods:
+                        l += numfmt.format(data[period][hr][field])
+                print(l)
+         
 def main():
     db = sqlite3.connect(DBname)
     db.row_factory = sqlite3.Row
     c = db.cursor()
+    #db.set_trace_callback(print)
     
     start, end, name = getTimeInterval.getPeriod('Prev7days')
     printHeader()
@@ -119,7 +205,8 @@ def main():
     for record in result:
         date = record['timestamp'].split(' ')[0]
         print(fmtLine(date, record))
-    print(' ')
+    
+    reportByHour(c)
 
     printHeader()
     select_hr = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
@@ -131,9 +218,6 @@ def main():
     result = c.fetchall()
     for record in result:
         print(fmtLine(record['timestamp'], record))
-    print(' ')
-
-    #db.set_trace_callback(print)
 
     printHeader() 
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
