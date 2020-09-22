@@ -9,7 +9,7 @@ from shared import getTimeInterval
 
 DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
 debug = False
-
+#test test
 translate = {'consumption' : 'Consumption', 'production' : 'Production' , \
              'purchased' : 'Purchased', 'feedin' : 'FeedIn', \
              'selfconsumption' : 'SelfConsumption', 'timestamp' : 'Date'}
