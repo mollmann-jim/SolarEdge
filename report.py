@@ -198,19 +198,6 @@ def main():
         date = record['timestamp'].split(' ')[0]
         print(fmtLine(date, record))
     
-    reportByHour(c)
-
-    printHeader()
-    select_hr = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
-        'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, timestamp, ' +\
-        'TOTAL(selfconsumption) AS selfconsumption FROM energy_details WHERE ' +\
-        'DATE(timestamp) == ? GROUP BY STRFTIME("%H", timestamp) ORDER BY timestamp;'
-    yesterday = getYesterday()
-    c.execute(select_hr, (yesterday,))
-    result = c.fetchall()
-    for record in result:
-        print(fmtLine(record['timestamp'], record))
-
     printHeader() 
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
         makeSection(c, period)
@@ -226,6 +213,19 @@ def main():
 
     printHeader()
     makeSection(c, 'All')
+
+    reportByHour(c)
+
+    printHeader()
+    select_hr = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
+        'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, timestamp, ' +\
+        'TOTAL(selfconsumption) AS selfconsumption FROM energy_details WHERE ' +\
+        'DATE(timestamp) == ? GROUP BY STRFTIME("%H", timestamp) ORDER BY timestamp;'
+    yesterday = getYesterday()
+    c.execute(select_hr, (yesterday,))
+    result = c.fetchall()
+    for record in result:
+        print(fmtLine(record['timestamp'], record))
     
 if __name__ == '__main__':
   main()
