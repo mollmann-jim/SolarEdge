@@ -19,7 +19,7 @@ debug = False
 def getTimeRange():
     now = dt.datetime.now()
     yesterday = now.replace(hour =0, minute =0, second =0, microsecond = 0) - \
-        dt.timedelta(days=2)
+        dt.timedelta(days=7)
     #
     # initial data load
     #
