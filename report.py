@@ -178,7 +178,12 @@ def reportByHour(c):
                 l = '{:02d}00'.format(hour)
                 for field in fld:
                     for period in periods:
-                        l += numfmt.format(data[period][hr][field])
+                        try:
+                            val = data[period][hr][field]
+                        except KeyError:
+                            val = 0
+                        #l += numfmt.format(data[period][hr][field])
+                        l += numfmt.format(val)
                 print(l)
          
 def main():
