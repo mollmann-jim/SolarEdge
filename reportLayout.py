@@ -1,9 +1,5 @@
 #!/usr/bin/python
-'''
-     Broken near
-          normalized = panel / allPanels[hr] * 100.0 - 100.0
-     division by 0
-'''
+
 import datetime as dt
 import sqlite3
 from sys import path
@@ -28,14 +24,10 @@ class DB:
         select_min_yr = 'SELECT min(timestamp) AS min FROM ' + self.table + ' ;'
         self.c.execute(select_min_yr)
         min = self.c.fetchone()
-        #first = dt.datetime.strptime(min['min'].replace('T', ' '),
-        #                                                '%Y-%m-%d %H:%M:%S.%f')
         first = dt.datetime.fromisoformat(min['min'])
         select_max_yr = 'SELECT max(timestamp) AS max FROM ' + self.table + ' ;'
         self.c.execute(select_max_yr)
         max = self.c.fetchone()
-        #last = dt.datetime.strptime(max['max'].replace('T', ' '),
-        #                                               '%Y-%m-%d %H:%M:%S.%f')
         last = dt.datetime.fromisoformat(max['max'])                          
         return first, last
     
