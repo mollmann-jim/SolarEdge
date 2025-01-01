@@ -16,6 +16,12 @@ except:
 DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
 debug = False
 
+def adapt_datetime(dt):
+    return dt.isoformat(sep=' ')
+
+def convert_datetime(val):
+    return dt.datetime.fromisoformat(val).replace('T', ' ')
+
 def getTimeRange():
     now = dt.datetime.now()
     yesterday = now.replace(hour =0, minute =0, second =0, microsecond = 0) - \
@@ -63,7 +69,9 @@ class DB:
             ' feedin          REAL,\n' +\
             ' selfconsumption REAL \n' +\
             ' );'
-        self.db = sqlite3.connect(DBname)
+        sqlite3.register_adapter(dt.datetime, adapt_datetime)
+        sqlite3.register_converter("DATETIME", convert_datetime)
+        self.db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
         self.db.row_factory = sqlite3.Row
         self.c = self.db.cursor()
         if debug:

@@ -17,6 +17,13 @@ columns = ['consumption', 'production', 'purchased', 'feedin', \
                         'selfconsumption', 'timestamp']
 Columns = ['Consumption', 'Production', 'Purchased', 'FeedIn', \
                         'SelfConsumption', 'Timestamp']
+
+def adapt_datetime(dt):
+    return dt.isoformat(sep=' ')
+
+def convert_datetime(val):
+    return dt.datetime.fromisoformat(val.decode('utf-8').replace('T', ' '))
+
 def getYears(c):
     select_min_yr = 'SELECT min(timestamp) AS min FROM energy_day;'
     c.execute(select_min_yr)
@@ -38,6 +45,7 @@ def getYesterday():
 def fmtLine(tag, row):
     line = tag + ': (none)'
     if row['Consumption']:
+        #print(dict(row))
         header  =  '{:>19s}'.format(tag)
         Prod    = row['Production'] if row['Production'] is not None else 0.0
         prod    = ' {:>10.2f}'.format(Prod / 1000)
@@ -45,7 +53,8 @@ def fmtLine(tag, row):
         percent = ' {:>8.1f}'.format(Prod / row['Consumption'] * 100)
         sold    = ' {:>8.2f}'.format(row['FeedIn'] / 1000)
         bought  = ' {:>8.2f}'.format(row['Purchased'] / 1000)
-        selfcon = ' {:>9.2f}'.format(row['SelfConsumption'] / 1000)
+        Selfcon = row['SelfConsumption'] if row['SelfConsumption'] is not None else 0.0
+        selfcon = ' {:>9.2f}'.format(Selfcon / 1000)
         line = header + prod + used + percent + sold + bought + selfcon
     return line
 
@@ -187,7 +196,9 @@ def reportByHour(c):
                 print(l)
          
 def main():
-    db = sqlite3.connect(DBname)
+    sqlite3.register_adapter(dt.datetime, adapt_datetime)
+    sqlite3.register_converter("DATETIME", convert_datetime)
+    db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
     db.row_factory = sqlite3.Row
     c = db.cursor()
     #db.set_trace_callback(print)
@@ -200,7 +211,7 @@ def main():
     c.execute(select, (start, end))
     result = c.fetchall()
     for record in result:
-        date = record['timestamp'].split(' ')[0]
+        date = str(record['timestamp']).split(' ')[0]
         print(fmtLine(date, record))
     
     printHeader() 
@@ -230,7 +241,7 @@ def main():
     c.execute(select_hr, (yesterday,))
     result = c.fetchall()
     for record in result:
-        print(fmtLine(record['timestamp'], record))
-    
+        print(fmtLine(record['timestamp'].isoformat(sep = ' '), record))
+
 if __name__ == '__main__':
   main()

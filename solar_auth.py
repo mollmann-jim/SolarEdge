@@ -1,4 +1,5 @@
 USERNAME = 'foo@bar.com'
 PASSWORD = 'password'
 TOKEN = '1234567890abcdefghijklmnopqrstuv'
+TOKEN = 'GT8AZI44ZG1QLBJP6QBXGZQ5TPB8BDM8'
 SITEID = '1234567'

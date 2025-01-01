@@ -22,7 +22,9 @@ debug = False
 
 class DB:
     def __init__(self):
-        self.db = sqlite3.connect(DBname)
+        sqlite3.register_adapter(dt.datetime, adapt_datetime)
+        sqlite3.register_converter("DATETIME", convert_datetime)
+        self.db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
         self.db.row_factory = sqlite3.Row
         self.c = self.db.cursor()
         
@@ -144,7 +146,13 @@ class PanelMeasurement(DB):
                           layout['reportersInfo'][module]['localizedMeasurements']['Voltage [V]'] )
                 self.c.execute(insert, values)
         self.db.commit()
-        
+
+def adapt_datetime(dt):
+    return dt.isoformat(sep=' ')
+
+def convert_datetime(val):
+    return dt.datetime.fromisoformat(val).replace('T', ' ')
+    
 def main():
     
     if debug:
