@@ -1,3 +1,8 @@
 solar_auth.py
 solar_auth.py.dummy
 SolarEdge.sql
+report.sh
+logs
+ref
+__pycache__/
+
