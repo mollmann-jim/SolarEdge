@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from se_api import Solaredge, _fmt_date
-import testdata
+#import testdata
 import datetime as dt
 import sqlite3
 from sys import path
@@ -44,13 +44,14 @@ def getYesterday():
 
 def fmtLine(tag, row):
     line = tag + ': (none)'
-    if row['Consumption']:
+    if row['Consumption'] is not None:
         #print(dict(row))
         header  =  '{:>19s}'.format(tag)
         Prod    = row['Production'] if row['Production'] is not None else 0.0
         prod    = ' {:>10.2f}'.format(Prod / 1000)
         used    = ' {:>11.2f}'.format(row['Consumption'] / 1000)
-        percent = ' {:>8.1f}'.format(Prod / row['Consumption'] * 100)
+        Percent = Prod / row['Consumption'] * 100 if row['Consumption'] else 0.0
+        percent = ' {:>8.1f}'.format(Percent)
         sold    = ' {:>8.2f}'.format(row['FeedIn'] / 1000)
         bought  = ' {:>8.2f}'.format(row['Purchased'] / 1000)
         Selfcon = row['SelfConsumption'] if row['SelfConsumption'] is not None else 0.0
