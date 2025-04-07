@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from se_api import Solaredge, _fmt_date
-import testdata
+#import testdata
 import datetime as dt
 import sqlite3
 
