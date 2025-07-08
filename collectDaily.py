@@ -1,8 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from se_api import Solaredge, _fmt_date
 #import testdata
 import datetime as dt
 import sqlite3
+import os
+
+home = os.getenv('HOME')
 
 try:
     import solar_auth
@@ -13,7 +16,7 @@ try:
 except:
     pass
 
-DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
+DBname = home + '/tools/SolarEdge//SolarEdge.sql'
 debug = False
 
 def adapt_datetime(dt):

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from se_api import Solaredge, _fmt_date
 #import testdata
 import datetime as dt
@@ -6,6 +6,9 @@ import sqlite3
 import requests
 from requests.auth import HTTPBasicAuth
 from dateutil.tz import tz
+import os
+
+home = os.getenv('HOME')
 
 try:
     import solar_auth
@@ -16,7 +19,7 @@ except:
     pass
 
 URL = 'https://monitoring.solaredge.com/solaredge-apigw/api/sites/' + siteid + '/layout/logical'
-DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
+DBname = home + '/tools/SolarEdge//SolarEdge.sql'
 debug = False
 
 

@@ -1,13 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from se_api import Solaredge, _fmt_date
 #import testdata
 import datetime as dt
 import sqlite3
+import os
+
+home = os.getenv('HOME')
+
 from sys import path
-path.append('/home/jim/tools/')
+path.append(home + '/tools/')
 from shared import getTimeInterval
 
-DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
+DBname = home + '/tools/SolarEdge//SolarEdge.sql'
 debug = False
 
 translate = {'consumption' : 'Consumption', 'production' : 'Production' , \
