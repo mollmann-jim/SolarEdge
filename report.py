@@ -207,17 +207,18 @@ def main():
     db.row_factory = sqlite3.Row
     c = db.cursor()
     #db.set_trace_callback(print)
+
+    for period in ['Prev7days', 'Prev7daysLastYear']:
+        start, end, name = getTimeInterval.getPeriod(period)
+        printHeader()
     
-    start, end, name = getTimeInterval.getPeriod('Prev7days')
-    printHeader()
-    
-    select = 'SELECT * FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' +\
-        'ORDER BY timestamp DESC;'
-    c.execute(select, (start, end))
-    result = c.fetchall()
-    for record in result:
-        date = str(record['timestamp']).split(' ')[0]
-        print(fmtLine(date, record))
+        select = 'SELECT * FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' +\
+            'ORDER BY timestamp DESC;'
+        c.execute(select, (start, end))
+        result = c.fetchall()
+        for record in result:
+            date = str(record['timestamp']).split(' ')[0]
+            print(fmtLine(date, record))
     
     printHeader() 
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
