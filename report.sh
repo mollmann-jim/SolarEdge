@@ -6,7 +6,7 @@ reportDir="$HOME/SynologyDrive/Reports.Daily/"
 if [[ "$HOSTNAME" != "jim4" ]]; then
     newAge=77
     updated=$(find $HOME/SynologyDrive/Reports.Daily/ -name SolarEdge.txt -mmin -$newAge | wc -l)
-    if [[ $updated > 0 ]]; then
+    if [[ $(($updated + 0 ))  > 0 ]]; then
 	#echo already run
 	exit 0
     fi
