@@ -3,38 +3,40 @@
 import datetime as dt
 import sqlite3
 from sys import path
+#from dateutil.tz import tz
+
 path.append('/home/jim/tools/')
 from shared import getTimeInterval
-from dateutil.tz import tz
 
 DBname = '/home/jim/tools/SolarEdge//SolarEdge.sql'
 
 debug = False
 
 class DB:
-    def __init__(self):
+    def __init__(self, table):
+        self.table = table
         sqlite3.register_adapter(dt.datetime, adapt_datetime)
         sqlite3.register_converter("DATETIME", convert_datetime)
         self.db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
         self.db.row_factory = sqlite3.Row
         self.c = self.db.cursor()
         #self.db.set_trace_callback(print)
-        
+
     def getYears(self):
         select_min_yr = 'SELECT min(timestamp) AS min FROM ' + self.table + ' ;'
         self.c.execute(select_min_yr)
-        min = self.c.fetchone()
-        first = dt.datetime.fromisoformat(min['min'])
+        minYear = self.c.fetchone()
+        first = dt.datetime.fromisoformat(minYear['min'])
         select_max_yr = 'SELECT max(timestamp) AS max FROM ' + self.table + ' ;'
         self.c.execute(select_max_yr)
-        max = self.c.fetchone()
-        last = dt.datetime.fromisoformat(max['max'])                          
+        maxYear = self.c.fetchone()
+        last = dt.datetime.fromisoformat(maxYear['max'])
         return first, last
-    
+
 class PanelInfo(DB):
     def __init__(self):
         self.table = 'panelinfo'
-        DB.__init__(self)
+        DB.__init__(self, self.table)
 
     def getModule2Name(self):
         select = 'SELECT module, name FROM ' + self.table + ' ;'
@@ -44,17 +46,19 @@ class PanelInfo(DB):
         for rec in result:
             table[rec['module']] = rec['name']
         return table
-    
+
 class PanelData(DB):
     def __init__(self):
         self.table = 'paneldata'
-        DB.__init__(self)
+        DB.__init__(self, self.table)
         self.minPanelCount = 0  # ignore records from testing
         self.minCount      = 0  # ignore records from testing
 
     def getProduction(self, start, end, minPanelCount = None, minCount = None):
-        if not minPanelCount: minPanelCount = self.minPanelCount
-        if not minCount: minCount = self.minCount
+        if not minPanelCount:
+            minPanelCount = self.minPanelCount
+        if not minCount:
+            minCount = self.minCount
         minPanelCount= str(minPanelCount)
         minCount = str(minCount)
         selectPanel = 'SELECT AVG(energyw) AS energy, module, ' \
@@ -73,13 +77,13 @@ class PanelData(DB):
         AllPanels = self.c.fetchall()
         allPanels = {}
         panels = {}
-        
+
         for rec in AllPanels:
             allPanels[rec['hour']] = rec['energy']
             panels[rec['hour']] = {}
         self.c.execute(selectPanel, (start, end))
         Panels = self.c.fetchall()
-        
+
         for rec in Panels:
             panels[rec['hour']][rec['module']] = rec['energy']
             #print('Panel', rec['hour'], rec['module'], panels[rec['hour']][rec['module']])
@@ -101,7 +105,7 @@ class PanelData(DB):
         print(hdr0, '\n')
         print(hdr1)
         print(hdr2)
-            
+
         for module in module2name.keys():
             line = fmtNm.format(module2name[module])
             #print(module, module2name[module])
@@ -111,7 +115,7 @@ class PanelData(DB):
                     panel = panels[hr][module]
                 except KeyError:
                     panel = 0.0
-                        
+
                 if allPanels[hr] == 0.0:
                     normalized = 0.0
                 else:
@@ -119,9 +123,9 @@ class PanelData(DB):
                 line += fmtHR.format(panel, normalized)
             print(line)
         print('')
-        
-def adapt_datetime(dt):
-    return dt.isoformat(sep=' ')
+
+def adapt_datetime(DT):
+    return DT.isoformat(sep=' ')
 
 def convert_datetime(val):
     return dt.datetime.fromisoformat(val).replace('T', ' ')
@@ -143,11 +147,11 @@ def main():
         start, end, name = getTimeInterval.getPeriod('Year', year = year)
         allPanels, panels = pd.getProduction(start, end, minPanelCount = 9, minCount = 99)
         pd.showProduction(allPanels, panels, module2Name, 'Year ' + str(year), start, end)
-        
+
     start, end, name = getTimeInterval.getPeriod('All')
     allPanels, panels = pd.getProduction(start, end, minPanelCount = 9, minCount = 99)
     pd.showProduction(allPanels, panels, module2Name, 'All Data', start, end)
 
-    
+
 if __name__ == '__main__':
-  main()
+    main()

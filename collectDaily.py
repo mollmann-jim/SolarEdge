@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-from se_api import Solaredge, _fmt_date
 #import testdata
 import datetime as dt
 import sqlite3
 import os
+from se_api import Solaredge, _fmt_date
 
 home = os.getenv('HOME')
 
@@ -19,8 +19,8 @@ except:
 DBname = home + '/tools/SolarEdge//SolarEdge.sql'
 debug = False
 
-def adapt_datetime(dt):
-    return dt.isoformat(sep=' ')
+def adapt_datetime(DT):
+    return DT.isoformat(sep=' ')
 
 def convert_datetime(val):
     return dt.datetime.fromisoformat(val).replace('T', ' ')
@@ -41,7 +41,7 @@ def getTimeRange():
     now = _fmt_date(now, '%Y-%m-%d %H:%M:%S')
     yesterday = _fmt_date(yesterday, '%Y-%m-%d %H:%M:%S')
 
-    
+
     return (yesterday, now)
 
 def dumpData(data, meters):
@@ -50,15 +50,17 @@ def dumpData(data, meters):
         row = []
         row.append(day)
         for meter in meters:
-            if data[day][meter] is None: s += '\tNone'
-            else: s += '\t{:7.1f}'.format(data[day][meter])
+            if data[day][meter] is None:
+                s += '\tNone'
+            else:
+                s += f'\t{data[day][meter]:7.1f}'
             row.append(data[day][meter])
         print(s)
     print('============================================')
 
 class DB:
-    def __init__(self):
-        #self.table = table
+    def __init__(self, table):
+        self.table = table
         self.columns = ['consumption', 'production', 'purchased', 'feedin', \
                         'selfconsumption']
         self.translate = {'consumption' : 'Consumption', 'production' : 'Production' , \
@@ -83,13 +85,14 @@ class DB:
             pass
         self.c.execute(create)
         self.db.commit()
-        
+
     def getOldData(self, date):
         select = 'SELECT consumption, production, purchased, feedin, selfconsumption FROM ' +\
             self.table + ' WHERE timestamp = ?'
         self.c.execute(select, (date, ))
         record = self.c.fetchone()
-        if record is None: return None
+        if record is None:
+            return None
         Row = dict(record)
         row = {}
         for key in Row.keys():
@@ -104,13 +107,13 @@ class DB:
                   row['SelfConsumption']]
         self.c.execute(insert, values)
         self.db.commit()
-                
+
 class PowerDetails(DB):
     def __init__(self, s):
         self.s = s
         self.table = 'power_details'
-        DB.__init__(self)
-        
+        DB.__init__(self, self.table)
+
 
     def UpdateData(self):
         (begin, finish) = getTimeRange()
@@ -118,7 +121,7 @@ class PowerDetails(DB):
         #power = testdata.power_details
         #print(power)
         self.UpdateDB(power)
-       
+
     def UpdateDB(self, power):
         meters = []
         data = {}
@@ -127,7 +130,7 @@ class PowerDetails(DB):
             meter = row['type']
             meters.append(meter)
             times.add(len(row['values']))
-            
+
         if len(set(times)) == 1:
             print(len(set(times)), 'timestamps counts', set(times), 'found as expected')
         else:
@@ -153,10 +156,11 @@ class PowerDetails(DB):
                         print('Differ:', self.table, day, k, \
                               oldInfo.get(k, None), ' -> ', data[day][k], data[day])
             self.updateData(day, data[day])
-        
+
 class Energy(DB):
-    def __init__(self):
-        DB.__init__(self)
+    def __init__(self, table):
+        self.table = table
+        DB.__init__(self, self.table)
 
     def UpdateDB(self, energy):
         meters = []
@@ -166,7 +170,7 @@ class Energy(DB):
             meter = row['type']
             meters.append(meter)
             times.add(len(row['values']))
-            
+
         if len(set(times)) == 1:
             print(len(set(times)), 'timestamps counts', set(times), 'found as expected')
         else:
@@ -193,36 +197,36 @@ class Energy(DB):
                               oldInfo.get(k, None), ' -> ', data[day][k], data[day])
 
             self.updateData(day, data[day])
-                           
-        
+
+
 class EnergyDay(Energy):
     def __init__(self, s):
         self.s = s
         self.table = 'energy_day'
         self.timeunit = 'DAY'
-        Energy.__init__(self)
-        
+        Energy.__init__(self, self.table)
+
     def UpdateData(self):
         (begin, finish) = getTimeRange()
         energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
         #energy = testdata.energy_details_day
         #print(energy)
         self.UpdateDB(energy)
-        
-                  
+
+
 class EnergyDetails(Energy):
     def __init__(self, s):
         self.s = s
         self.table = 'energy_details'
         self.timeunit = 'QUARTER_OF_AN_HOUR'
-        Energy.__init__(self)
-        
+        Energy.__init__(self, self.table)
+
     def UpdateData(self):
         (begin, finish) = getTimeRange()
         energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
         #energy = testdata.energy_details
         self.UpdateDB(energy)
-        
+
 def main():
     s = Solaredge(TOKEN)
     p = PowerDetails(s)
@@ -232,8 +236,8 @@ def main():
     eDet.UpdateData()
     p.UpdateData()
 
-    
 
-    
+
+
 if __name__ == '__main__':
-  main()
+    main()

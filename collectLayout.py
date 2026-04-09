@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-from se_api import Solaredge, _fmt_date
 #import testdata
 import datetime as dt
 import sqlite3
+import os
 import requests
 from requests.auth import HTTPBasicAuth
 from dateutil.tz import tz
-import os
+
+#from se_api import Solaredge, _fmt_date
 
 home = os.getenv('HOME')
 
@@ -30,7 +31,7 @@ class DB:
         self.db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
         self.db.row_factory = sqlite3.Row
         self.c = self.db.cursor()
-        
+
 class PanelData(DB):
     def __init__(self):
         self.table = 'paneldata'
@@ -65,7 +66,7 @@ class PanelData(DB):
                                         layout['reportersData'][module]['energy'], \
                                         layout['reportersData'][module]['unscaledEnergy']))
         self.db.commit()
-        
+
 class PanelInfo(DB):
     def __init__(self):
         self.table = 'panelinfo'
@@ -85,7 +86,7 @@ class PanelInfo(DB):
             ' )'
         self.c.execute(create)
         self.db.commit()
-        
+
     def Insert(self, layout):
         insert = 'INSERT OR REPLACE INTO ' + self.table +\
             ' (module, timestamp, serialnumber, name, manufacturer, model)' +\
@@ -99,8 +100,8 @@ class PanelInfo(DB):
                 #print(module, 'not a panel', layout['reportersInfo'][module])
                 pass
             else:
-                timestamp = dt.datetime.fromtimestamp(layout['reportersInfo'][module]['lastMeasurement'] / 1000 \
-                                                      , tz=tz.gettz('UTC'))
+                layoutTime = layout['reportersInfo'][module]['lastMeasurement'] / 1000
+                timestamp = dt.datetime.fromtimestamp(layoutTime, tz=tz.gettz('UTC'))
                 values = (module, \
                           timestamp, \
                           layout['reportersInfo'][module]['serialNumber'], \
@@ -130,7 +131,7 @@ class PanelMeasurement(DB):
             ' )'
         self.c.execute(create)
         self.db.commit()
-         
+
     def Insert(self, layout):
         insert = 'INSERT INTO ' + self.table +\
             ' (timestamp, module, current, optvoltage, power, voltage)' +\
@@ -140,7 +141,8 @@ class PanelMeasurement(DB):
                 #print(module, 'not a panel', layout['reportersInfo'][module])
                 pass
             else:
-                timestamp = dt.datetime.fromtimestamp(layout['reportersInfo'][module]['lastMeasurement'] / 1000)
+                layoutTime = layout['reportersInfo'][module]['lastMeasurement'] / 1000
+                timestamp = dt.datetime.fromtimestamp(layoutTime)
                 values = (timestamp, \
                           module, \
                           layout['reportersInfo'][module]['localizedMeasurements']['Current [A]'], \
@@ -150,18 +152,18 @@ class PanelMeasurement(DB):
                 self.c.execute(insert, values)
         self.db.commit()
 
-def adapt_datetime(dt):
-    return dt.isoformat(sep=' ')
+def adapt_datetime(DT):
+    return DT.isoformat(sep=' ')
 
 def convert_datetime(val):
     return dt.datetime.fromisoformat(val).replace('T', ' ')
-    
+
 def main():
-    
+
     if debug:
         layout = testdata.layout
     else:
-        r = requests.get(URL, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+        r = requests.get(URL, auth=HTTPBasicAuth(USERNAME, PASSWORD), timeout = 17.0)
         r.raise_for_status()
         layout = r.json()
         #print(layout)
@@ -174,4 +176,4 @@ def main():
     pm.Insert(layout)
 
 if __name__ == '__main__':
-  main()
+    main()

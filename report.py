@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from se_api import Solaredge, _fmt_date
+#from se_api import Solaredge, _fmt_date
 #import testdata
 import datetime as dt
 import sqlite3
@@ -22,8 +22,8 @@ columns = ['consumption', 'production', 'purchased', 'feedin', \
 Columns = ['Consumption', 'Production', 'Purchased', 'FeedIn', \
                         'SelfConsumption', 'Timestamp']
 
-def adapt_datetime(dt):
-    return dt.isoformat(sep=' ')
+def adapt_datetime(DT):
+    return DT.isoformat(sep=' ')
 
 def convert_datetime(val):
     return dt.datetime.fromisoformat(val.decode('utf-8').replace('T', ' '))
@@ -31,12 +31,12 @@ def convert_datetime(val):
 def getYears(c):
     select_min_yr = 'SELECT min(timestamp) AS min FROM energy_day;'
     c.execute(select_min_yr)
-    min = c.fetchone()
-    first = dt.datetime.strptime(min['min'], '%Y-%m-%d %H:%M:%S')
+    minYear = c.fetchone()
+    first = dt.datetime.strptime(minYear['min'], '%Y-%m-%d %H:%M:%S')
     select_max_yr = 'SELECT max(timestamp) AS max FROM energy_day;'
     c.execute(select_max_yr)
-    max = c.fetchone()
-    last = dt.datetime.strptime(max['max'], '%Y-%m-%d %H:%M:%S')
+    maxYear = c.fetchone()
+    last = dt.datetime.strptime(maxYear['max'], '%Y-%m-%d %H:%M:%S')
     return first, last
 
 def getYesterday():
@@ -50,16 +50,16 @@ def fmtLine(tag, row):
     line = tag + ': (none)'
     if row['Consumption'] is not None:
         #print(dict(row))
-        header  =  '{:>19s}'.format(tag)
+        header  = f'{tag:>19s}'
         Prod    = row['Production'] if row['Production'] is not None else 0.0
-        prod    = ' {:>10.2f}'.format(Prod / 1000)
-        used    = ' {:>11.2f}'.format(row['Consumption'] / 1000)
+        prod    = f' {Prod / 1000:>10.2f}'
+        used    = f' {(row['Consumption'] / 1000):>11.2f}'
         Percent = Prod / row['Consumption'] * 100 if row['Consumption'] else 0.0
-        percent = ' {:>8.1f}'.format(Percent)
-        sold    = ' {:>8.2f}'.format(row['FeedIn'] / 1000)
-        bought  = ' {:>8.2f}'.format(row['Purchased'] / 1000)
+        percent = f' {Percent:>8.1f}'
+        sold    = f' {row['FeedIn'] / 1000:>8.2f}'
+        bought  = f' {row['Purchased'] / 1000:>8.2f}'
         Selfcon = row['SelfConsumption'] if row['SelfConsumption'] is not None else 0.0
-        selfcon = ' {:>9.2f}'.format(Selfcon / 1000)
+        selfcon = f' {(Selfcon / 1000):>9.2f}'
         line = header + prod + used + percent + sold + bought + selfcon
     return line
 
@@ -71,7 +71,7 @@ def printHeader():
     print('             Period        KWh         KWh   % Prod      KWh      KWh       KWh')
     print('------------------- ----------  ---------- -------- -------- -------- ---------')
     #...... Maximum This Month      63.90       86.75     73.7    37.35    51.96     39.16
-    
+
 def makeSection(c, title, byDay = False, byMonth = False, year = None):
     start, end, name = getTimeInterval.getPeriod(title, year = year)
     #print(start, end, name)
@@ -90,7 +90,7 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
     select_max = 'SELECT MAX(production) AS production, MAX(consumption) AS consumption, ' \
         'MAX(feedin) AS feedin, MAX(purchased) AS purchased, ' \
         'MAX(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
-        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' 
+        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
     groupMonth = ' GROUP BY substr(timestamp,1, 7) ORDER BY timestamp DESC;'
     if byMonth:
         select_end = groupMonth
@@ -102,13 +102,15 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         c.execute(select, (start, end))
         result = c.fetchall()
         results.append(result)
-                               
+
     titles = ['Total ', ' Average ', 'Minimum ', 'Maximum ']
-    for sum, avg, min, max in zip(*results):
-        for record, title in zip([sum, avg, min, max], titles):
-            if byMonth: name = record['date'][0:7]
-            print(fmtLine(title + name, record))
-        if byMonth: print('')
+    for Sum, Avg, Min, Max in zip(*results):
+        for Record, Title in zip([Sum, Avg, Min, Max], titles):
+            if byMonth:
+                name = Record['date'][0:7]
+            print(fmtLine(Title + name, Record))
+        if byMonth:
+            print('')
     print('')
 
 def reportByHour(c):
@@ -154,42 +156,42 @@ def reportByHour(c):
             hourData[period][hour] = {}
             for field in dataFields:
                 hourData[period][hour][field] = rec[field]
-    
+
     cummData = {}
     for period in periods:
         cummData[period] = {}
         for hour in range(0,24):
-             hr = '{:02d}'.format(hour)
-             cummData[period][hr] = {}
-             c.execute(selectCumm, (starts[period], ends[period], hr))
-             results = c.fetchall()
-             for rec in results:
-                 for field in dataFields:
-                     cummData[period][hr][field] = rec[field] / 1000.0
+            hr = f'{hour:02d}'
+            cummData[period][hr] = {}
+            c.execute(selectCumm, (starts[period], ends[period], hr))
+            results = c.fetchall()
+            for rec in results:
+                for field in dataFields:
+                    cummData[period][hr][field] = rec[field] / 1000.0
     #print(cummData)
 
     Hdr = [None] * 4
     fmt1 = '{:^' + str(12 * 2 * len(periods)) + '}'
     fmt2 = '{:^' + str( 6 * 2 * len(periods)) + '}'
     fmt2 += fmt2
-    fmt3 = ''.join(['{:>11s} '.format(p) for p in periods])
+    fmt3 = ''.join([f'{p:>11s} ' for p in periods])
     fmt3 += fmt3
     Hdr = [None] * 4
-    Hdr[0] = '' 
+    Hdr[0] = ''
     Hdr[2] = '    ' + fmt2.format('Average', 'Maximum')
     Hdr[3] = 'Time' + fmt3
-    for type, unit, numfmt, data in zip(['Hourly ', 'Cummulative '], \
+    for hourCum, unit, numfmt, data in zip(['Hourly ', 'Cummulative '], \
                                         [' (Wh)', ' (KWh)'], \
                                         ['{:>11.0f} ', '{:>11.3f} '], \
                                         [hourData, cummData]):
         for pu, fld in zip(['Production', 'Consumption'], \
                            [prodFields, usedFields]):
-            Hdr[1] = '    ' + fmt1.format(type + pu + unit)
+            Hdr[1] = '    ' + fmt1.format(hourCum + pu + unit)
             for line in Hdr:
                 print(line)
             for hour in range(0, 24):
-                hr = '{:02d}'.format(hour)
-                l = '{:02d}00'.format(hour)
+                hr = f'{hour:02d}'
+                l  = f'{hour:02d}00'
                 for field in fld:
                     for period in periods:
                         try:
@@ -199,7 +201,7 @@ def reportByHour(c):
                         #l += numfmt.format(data[period][hr][field])
                         l += numfmt.format(val)
                 print(l)
-         
+
 def main():
     sqlite3.register_adapter(dt.datetime, adapt_datetime)
     sqlite3.register_converter("DATETIME", convert_datetime)
@@ -211,23 +213,23 @@ def main():
     for period in ['Prev7days', 'Prev7daysLastYear']:
         start, end, name = getTimeInterval.getPeriod(period)
         printHeader()
-    
+
         select = 'SELECT * FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' +\
             'ORDER BY timestamp DESC;'
         c.execute(select, (start, end))
         result = c.fetchall()
         for record in result:
-            date = str(record['timestamp']).split(' ')[0]
+            date = str(record['timestamp']).split(' ', maxsplit = 1)[0]
             print(fmtLine(date, record))
-    
-    printHeader() 
+
+    printHeader()
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
         makeSection(c, period)
-        
+
     printHeader()
     makeSection(c, 'YearByMonth', byMonth = True)
     makeSection(c, 'LastYear')
-    
+
     printHeader()
     first, last = getYears(c)
     for year in range(last.year, first.year - 1, -1):
@@ -250,4 +252,4 @@ def main():
         print(fmtLine(record['timestamp'].isoformat(sep = ' '), record))
 
 if __name__ == '__main__':
-  main()
+    main()
