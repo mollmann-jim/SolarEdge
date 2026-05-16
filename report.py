@@ -171,18 +171,19 @@ def reportByHour(c):
     #print(cummData)
 
     Hdr = [None] * 4
-    fmt1 = '{:^' + str(12 * 2 * len(periods)) + '}'
-    fmt2 = '{:^' + str( 6 * 2 * len(periods)) + '}'
+    fmt1 = '{:^' + str(10 * 2 * len(periods)) + '}'
+    fmt2 = '{:^' + str( 5 * 2 * len(periods)) + '}'
     fmt2 += fmt2
-    fmt3 = ''.join([f'{p:>11s} ' for p in periods])
+    fmt3 = ''.join([f'{p:>10s} ' for p in periods])
     fmt3 += fmt3
+
     Hdr = [None] * 4
     Hdr[0] = ''
     Hdr[2] = '    ' + fmt2.format('Average', 'Maximum')
     Hdr[3] = 'Time' + fmt3
     for hourCum, unit, numfmt, data in zip(['Hourly ', 'Cummulative '], \
                                         [' (Wh)', ' (KWh)'], \
-                                        ['{:>11.0f} ', '{:>11.3f} '], \
+                                        ['{:>10.0f} ', '{:>10.3f} '], \
                                         [hourData, cummData]):
         for pu, fld in zip(['Production', 'Consumption'], \
                            [prodFields, usedFields]):
