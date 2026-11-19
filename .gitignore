@@ -1,6 +1,11 @@
 solar_auth.py
+solar_auth*
+solaredge-token.json
 SolarEdge.sql
 logs/
 refa
 __pycache__/
-
+SolarEdge/
+env.txt
+client.ID
+solaredge
