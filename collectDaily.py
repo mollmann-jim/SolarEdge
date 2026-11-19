@@ -5,7 +5,7 @@ import sqlite3
 import os
 from pathlib import Path
 import json
-import pprint
+import pprint as pp
 
 from solaredge import MonitoringClient, OAuth2, OAuthToken
 
@@ -30,9 +30,13 @@ def convert_datetime(val):
     return dt.datetime.fromisoformat(val).replace('T', ' ')
 
 def getTimeRange():
-    now = dt.datetime.now(timezone.utc)
+    now = dt.datetime.now(dt.timezone.utc)
     yesterday = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0) - \
         dt.timedelta(days=7)
+    yesterday = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0) - \
+        dt.timedelta(days=1)
+    yesterday = now.replace(hour = 17, minute = 0, second = 0, microsecond = 0)
+
     #
     # initial data load
     #
@@ -47,7 +51,7 @@ def getTimeRange():
     #now = _fmt_date(now, '%Y-%m-%d %H:%M:%S')
     #yesterday = _fmt_date(yesterday, '%Y-%m-%d %H:%M:%S')
     return (yesterday, now)
-'''
+
 def dumpData(data, meters):
     for day in data:
         s = day
@@ -61,8 +65,8 @@ def dumpData(data, meters):
             row.append(data[day][meter])
         print(s)
     print('============================================')
-'''
-'''
+
+
 class DB:
     def __init__(self, table):
         self.table = table
@@ -112,8 +116,7 @@ class DB:
                   row['SelfConsumption']]
         self.c.execute(insert, values)
         self.db.commit()
-'''
-'''
+
 class PowerDetails(DB):
     def __init__(self, s):
         self.s = s
@@ -123,7 +126,15 @@ class PowerDetails(DB):
 
     def UpdateData(self):
         (begin, finish) = getTimeRange()
-        power = self.s.get_power_details(siteid, begin, finish)
+        #power = self.s.get_power_details(siteid, begin, finish)
+        with MonitoringClient(oauth=self.s.auth) as client:
+            '''
+            power = client.get_meters_telemetry(self.s.siteid, begin,
+                                                finish, 'QUARTER_HOUR')
+            '''
+            power = client.get_meters_telemetry(self.s.siteid, begin,
+                                                finish, 'QUARTER_HOUR')
+        pp.pprint(power)
         #power = testdata.power_details
         #print(power)
         self.UpdateDB(power)
@@ -151,7 +162,8 @@ class PowerDetails(DB):
                         data[item['date']][m] = None
                 if 'value' in item:
                     data[item['date']][meter] = item['value']
-        #dumpData(data, meters)
+        dumpData(data, meters)
+        z = data / 0
         for day in data:
             oldInfo = self.getOldData(day)
             #oldInfo may be 'None'
@@ -162,7 +174,7 @@ class PowerDetails(DB):
                         print('Differ:', self.table, day, k, \
                               oldInfo.get(k, None), ' -> ', data[day][k], data[day])
             self.updateData(day, data[day])
-'''
+
 '''
 class Energy(DB):
     def __init__(self, table):
@@ -250,12 +262,16 @@ class Solaredge():
         #print(self.siteid, self.client_id, self.client_secret, self.TOKEN_FILE)
         #print(self.auth)
 
-    def save(token: OAuthToken) -> None:
+    def save(self, token: OAuthToken) -> None:
         self.TOKEN_FILE.write_text(json.dumps(token.to_dict()))
-        print('Solaredge:save: saved token', dt.datetime.now(timezone.utc))
+        print('Solaredge:save: saved token', dt.datetime.now(dt.timezone.utc))
         
 def main():
     s = Solaredge(SITEID, ID, SECRET)
+    p = PowerDetails(s)
+
+    p.UpdateData()
+
     '''
     s = Solaredge(TOKEN)
     p = PowerDetails(s)
