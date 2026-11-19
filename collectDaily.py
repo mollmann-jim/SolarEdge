@@ -140,6 +140,10 @@ class PowerDetails(DB):
         self.UpdateDB(power)
 
     def UpdateDB(self, power):
+        print(type(power))
+        for k in power:
+            print(k)
+        z = power / 0
         meters = []
         data = {}
         times = set(())
