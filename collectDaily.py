@@ -3,20 +3,24 @@
 import datetime as dt
 import sqlite3
 import os
-from se_api import Solaredge, _fmt_date
+from pathlib import Path
+import json
+import pprint
+
+from solaredge import MonitoringClient, OAuth2, OAuthToken
 
 home = os.getenv('HOME')
 
 try:
     import solar_auth
     USERNAME = solar_auth.USERNAME
-    PASSWORD = solar_auth.PASSWORD
-    siteid   = solar_auth.SITEID
-    TOKEN    = solar_auth.TOKEN
+    SITEID   = solar_auth.SITEID
+    ID       = solar_auth.CLIENT_ID
+    SECRET   = solar_auth.CLIENT_SECRET
 except:
     pass
 
-DBname = home + '/tools/SolarEdge//SolarEdge.sql'
+DBname = home + '/tools/SolarEdge.2//SolarEdge.sql'
 debug = False
 
 def adapt_datetime(DT):
@@ -26,24 +30,24 @@ def convert_datetime(val):
     return dt.datetime.fromisoformat(val).replace('T', ' ')
 
 def getTimeRange():
-    now = dt.datetime.now()
-    yesterday = now.replace(hour =0, minute =0, second =0, microsecond = 0) - \
+    now = dt.datetime.now(timezone.utc)
+    yesterday = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0) - \
         dt.timedelta(days=7)
     #
     # initial data load
     #
+    '''
     if False:
         yesterday = dt.datetime(2020, 4, 20)
         n = 6
         yesterday = yesterday + dt.timedelta(days= n * 7)
         now = yesterday + dt.timedelta(days= 7)
         print(yesterday, '->', now)
-    now = _fmt_date(now, '%Y-%m-%d %H:%M:%S')
-    yesterday = _fmt_date(yesterday, '%Y-%m-%d %H:%M:%S')
-
-
+    '''
+    #now = _fmt_date(now, '%Y-%m-%d %H:%M:%S')
+    #yesterday = _fmt_date(yesterday, '%Y-%m-%d %H:%M:%S')
     return (yesterday, now)
-
+'''
 def dumpData(data, meters):
     for day in data:
         s = day
@@ -57,7 +61,8 @@ def dumpData(data, meters):
             row.append(data[day][meter])
         print(s)
     print('============================================')
-
+'''
+'''
 class DB:
     def __init__(self, table):
         self.table = table
@@ -107,7 +112,8 @@ class DB:
                   row['SelfConsumption']]
         self.c.execute(insert, values)
         self.db.commit()
-
+'''
+'''
 class PowerDetails(DB):
     def __init__(self, s):
         self.s = s
@@ -156,7 +162,8 @@ class PowerDetails(DB):
                         print('Differ:', self.table, day, k, \
                               oldInfo.get(k, None), ' -> ', data[day][k], data[day])
             self.updateData(day, data[day])
-
+'''
+'''
 class Energy(DB):
     def __init__(self, table):
         self.table = table
@@ -198,7 +205,8 @@ class Energy(DB):
 
             self.updateData(day, data[day])
 
-
+'''
+'''
 class EnergyDay(Energy):
     def __init__(self, s):
         self.s = s
@@ -212,8 +220,8 @@ class EnergyDay(Energy):
         #energy = testdata.energy_details_day
         #print(energy)
         self.UpdateDB(energy)
-
-
+'''
+'''
 class EnergyDetails(Energy):
     def __init__(self, s):
         self.s = s
@@ -226,8 +234,29 @@ class EnergyDetails(Energy):
         energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
         #energy = testdata.energy_details
         self.UpdateDB(energy)
+'''
+class Solaredge():
+    def __init__(self, siteid, client_id, client_secret):
+        self.siteid        = siteid
+        self.client_id     = client_id
+        self.client_secret = client_secret
+        self.TOKEN_FILE    = Path("solaredge-token.json")
+        self.auth          = OAuth2(
+            OAuthToken.from_dict(json.loads(self.TOKEN_FILE.read_text())),
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            on_token_update=self.save,
+        )
+        #print(self.siteid, self.client_id, self.client_secret, self.TOKEN_FILE)
+        #print(self.auth)
 
+    def save(token: OAuthToken) -> None:
+        self.TOKEN_FILE.write_text(json.dumps(token.to_dict()))
+        print('Solaredge:save: saved token', dt.datetime.now(timezone.utc))
+        
 def main():
+    s = Solaredge(SITEID, ID, SECRET)
+    '''
     s = Solaredge(TOKEN)
     p = PowerDetails(s)
     eDay = EnergyDay(s)
@@ -235,6 +264,7 @@ def main():
     eDay.UpdateData()
     eDet.UpdateData()
     p.UpdateData()
+    '''
 
 
 
