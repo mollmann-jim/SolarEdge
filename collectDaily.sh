@@ -1,6 +1,7 @@
 #!/bin/bash
 #set -x
-logDir="$HOME/tools/SolarEdge/logs"
+#logDir="$HOME/tools/SolarEdge/logs"
+logDir="$HOME/tools/SolarEdge.2/logs"
 log=$logDir/collectDaily.$(/bin/date +%F-%T | /usr/bin/tr : .);
 $HOME/tools/SolarEdge/collectDaily.py > $log 2>&1
 #cat $log
