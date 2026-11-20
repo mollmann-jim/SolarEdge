@@ -35,7 +35,7 @@ def getTimeRange():
         dt.timedelta(days=7)
     yesterday = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0) - \
         dt.timedelta(days=1)
-    yesterday = now.replace(hour = 17, minute = 0, second = 0, microsecond = 0)
+    #yesterday = now.replace(hour = 17, minute = 0, second = 0, microsecond = 0)
 
     #
     # initial data load
@@ -52,36 +52,43 @@ def getTimeRange():
     #yesterday = _fmt_date(yesterday, '%Y-%m-%d %H:%M:%S')
     return (yesterday, now)
 
-def dumpData(data, meters):
+def dumpData(data, kinds):
     for day in data:
         s = day
-        row = []
-        row.append(day)
-        for meter in meters:
-            if data[day][meter] is None:
+        for kind in kinds:
+            s += '\t' + kind
+            if data[day][kind] is None:
                 s += '\tNone'
             else:
-                s += f'\t{data[day][meter]:7.1f}'
-            row.append(data[day][meter])
+                s += f'\t{data[day][kind]:7.1f}'
         print(s)
     print('============================================')
-
 
 class DB:
     def __init__(self, table):
         self.table = table
-        self.columns = ['consumption', 'production', 'purchased', 'feedin', \
-                        'selfconsumption']
-        self.translate = {'consumption' : 'Consumption', 'production' : 'Production' , \
-                          'purchased' : 'Purchased', 'feedin' : 'FeedIn', \
-                          'selfconsumption' : 'SelfConsumption'}
+        self.columns = ['exportenergy',      'exportpower',
+                        'importenergy',      'importpower',
+                        'consumptionenergy', 'consumptionpower',
+                        'productionenergy',  'productionpower']
+        self.translate = {'exportenergy'     : 'exportEnergy',
+                          'exportpower'      : 'exportPower',
+                          'importenergy'     : 'importEnergy',
+                          'importpower'      : 'importPower',
+                          'consumptionenergy': 'consumptionEnergy',
+                          'consumptionpower' : 'consumptionPower',
+                          'productionenergy' : 'productionEnergy',
+                          'productionpower'  : 'productionPower'}
         create = 'CREATE TABLE IF NOT EXISTS ' + self.table + '(\n' +\
-            ' timestamp       DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
-            ' consumption     REAL,\n' +\
-            ' production      REAL,\n' +\
-            ' purchased       REAL,\n' +\
-            ' feedin          REAL,\n' +\
-            ' selfconsumption REAL \n' +\
+            ' timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
+            ' exportenergy      REAL,\n' +\
+            ' exportpower       REAL,\n' +\
+            ' importenergy      REAL,\n' +\
+            ' importpower       REAL,\n' +\
+            ' consumptionenergy REAL,\n' +\
+            ' consumptionpower  REAL,\n' +\
+            ' productionenergy  REAL,\n' +\
+            ' productionpower   REAL \n' +\
             ' );'
         sqlite3.register_adapter(dt.datetime, adapt_datetime)
         sqlite3.register_converter("DATETIME", convert_datetime)
@@ -96,7 +103,9 @@ class DB:
         self.db.commit()
 
     def getOldData(self, date):
-        select = 'SELECT consumption, production, purchased, feedin, selfconsumption FROM ' +\
+        select = 'SELECT exportenergy, exportpower, importenergy, '  +\
+            'importpower, consumptionenergy, consumptionpower,'      +\
+            'productionenergy, productionpower FROM '                +\
             self.table + ' WHERE timestamp = ?'
         self.c.execute(select, (date, ))
         record = self.c.fetchone()
@@ -109,65 +118,63 @@ class DB:
         return row
 
     def updateData(self, date, row):
-        insert = 'INSERT OR REPLACE INTO ' + self.table + ' (timestamp, consumption, ' +\
-            'production, purchased, feedin, selfconsumption) ' +\
-            'VALUES( ?, ?, ?, ?, ?, ?);'
-        values = [date, row['Consumption'], row['Production'], row['Purchased'], row['FeedIn'], \
-                  row['SelfConsumption']]
+        insert = 'INSERT OR REPLACE INTO ' + self.table + ' (timestamp, '     +\
+            'exportenergy, exportpower, importenergy, importpower, '          +\
+            'consumptionenergy,  consumptionpower, productionenergy, '        +\
+            'productionpower) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?);'
+        print(date, row)
+        values = [date, row['exportEnergy'], row['exportPower'],
+                  row['importEnergy'],       row['importPower'], 
+                  row['consumptionEnergy'],  row['consumptionPower'],
+                  row['productionEnergy'],   row['productionPower']]
+                  
         self.c.execute(insert, values)
         self.db.commit()
 
-class PowerDetails(DB):
-    def __init__(self, s):
-        self.s = s
-        self.table = 'power_details'
+class PowerEnergy(DB):
+    def __init__(self, table):
+        self.table = table
         DB.__init__(self, self.table)
-
 
     def UpdateData(self):
         (begin, finish) = getTimeRange()
-        #power = self.s.get_power_details(siteid, begin, finish)
         with MonitoringClient(oauth=self.s.auth) as client:
-            '''
-            power = client.get_meters_telemetry(self.s.siteid, begin,
-                                                finish, 'QUARTER_HOUR')
-            '''
             power = client.get_meters_telemetry(self.s.siteid, begin,
                                                 finish, 'QUARTER_HOUR')
         pp.pprint(power)
-        #power = testdata.power_details
-        #print(power)
         self.UpdateDB(power)
 
     def UpdateDB(self, power):
-        print(type(power))
-        for k in power:
-            print(k)
-        z = power / 0
         meters = []
+        types  = []
         data = {}
         times = set(())
-        for row in power['powerDetails']['meters']:
-            meter = row['type']
+        for meter in power['meters']:
             meters.append(meter)
-            times.add(len(row['values']))
+            for kind in power['meters'][meter]:
+                print(kind)
+                types.append(kind)
+                times.add(len(power['meters'][meter][kind]['values']))
+        print('meters:', meters)
+        print('types: ', types)
 
         if len(set(times)) == 1:
             print(len(set(times)), 'timestamps counts', set(times), 'found as expected')
         else:
             print("Not all meters have the same number of timestamps:", set(times), self.table)
 
-        for row in power['powerDetails']['meters']:
-            meter = row['type']
-            for item in row['values']:
-                if item['date'] not in data:
-                    data[item['date']] = {}
-                    for m in meters:
-                        data[item['date']][m] = None
-                if 'value' in item:
-                    data[item['date']][meter] = item['value']
-        dumpData(data, meters)
-        z = data / 0
+        for meter in power['meters']:
+            for kind in power['meters'][meter]:
+                for item in power['meters'][meter][kind]['values']:
+                    if item['timestamp'] not in data:
+                        data[item['timestamp']] = {}
+                        for col in self.columns:
+                            Col = self.translate[col]
+                            data[item['timestamp']][Col] = None
+                    data[item['timestamp']][kind] = item['value']
+        print('data:')
+        pp.pprint(data)
+        dumpData(data, types)
         for day in data:
             oldInfo = self.getOldData(day)
             #oldInfo may be 'None'
@@ -179,78 +186,42 @@ class PowerDetails(DB):
                               oldInfo.get(k, None), ' -> ', data[day][k], data[day])
             self.updateData(day, data[day])
 
-'''
-class Energy(DB):
-    def __init__(self, table):
-        self.table = table
-        DB.__init__(self, self.table)
 
-    def UpdateDB(self, energy):
-        meters = []
-        data = {}
-        times = set(())
-        for row in energy['energyDetails']['meters']:
-            meter = row['type']
-            meters.append(meter)
-            times.add(len(row['values']))
-
-        if len(set(times)) == 1:
-            print(len(set(times)), 'timestamps counts', set(times), 'found as expected')
-        else:
-            print("Not all meters have the same number of timestamps:", set(times))
-
-        for row in energy['energyDetails']['meters']:
-            meter = row['type']
-            for item in row['values']:
-                if item['date'] not in data:
-                    data[item['date']] = {}
-                    for m in meters:
-                        data[item['date']][m] = None
-                if 'value' in item:
-                    data[item['date']][meter] = item['value']
-        #dumpData(data, meters)
-        for day in data:
-            oldInfo = self.getOldData(day)
-            #oldInfo may be 'None'
-            # do we want to not use the latest data???
-            if oldInfo:
-                for k in data[day].keys():
-                    if data[day][k] != oldInfo.get(k, None):
-                        print('Differ:', self.table, day, k, \
-                              oldInfo.get(k, None), ' -> ', data[day][k], data[day])
-
-            self.updateData(day, data[day])
-
-'''
-'''
-class EnergyDay(Energy):
+class PowerEnergyDetails(PowerEnergy):
     def __init__(self, s):
         self.s = s
-        self.table = 'energy_day'
+        self.table = 'power_energy_details'
+        PowerEnergy.__init__(self, self.table)
+
+    def UpdateData(self):
+        (begin, finish) = getTimeRange()
+        #power = self.s.get_power_details(siteid, begin, finish)
+        with MonitoringClient(oauth=self.s.auth) as client:
+            power = client.get_meters_telemetry(self.s.siteid, begin,
+                                                finish, 'QUARTER_HOUR'
+                                                )
+        #pp.pprint(power)
+        #print(power)
+        self.UpdateDB(power)
+
+class PowerEnergyDay(PowerEnergy):
+    def __init__(self, s):
+        self.s = s
+        self.table = 'power_energy_day'
         self.timeunit = 'DAY'
-        Energy.__init__(self, self.table)
+        PowerEnergy.__init__(self, self.table)
 
     def UpdateData(self):
         (begin, finish) = getTimeRange()
-        energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
-        #energy = testdata.energy_details_day
+        #energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
+        with MonitoringClient(oauth=self.s.auth) as client:
+            energy = client.get_meters_telemetry(self.s.siteid, begin,
+                                                 finish, self.timeunit,
+                                                 '606324254')
         #print(energy)
+        pp.pprint(energy)
         self.UpdateDB(energy)
-'''
-'''
-class EnergyDetails(Energy):
-    def __init__(self, s):
-        self.s = s
-        self.table = 'energy_details'
-        self.timeunit = 'QUARTER_OF_AN_HOUR'
-        Energy.__init__(self, self.table)
 
-    def UpdateData(self):
-        (begin, finish) = getTimeRange()
-        energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
-        #energy = testdata.energy_details
-        self.UpdateDB(energy)
-'''
 class Solaredge():
     def __init__(self, siteid, client_id, client_secret):
         self.siteid        = siteid
@@ -272,9 +243,11 @@ class Solaredge():
         
 def main():
     s = Solaredge(SITEID, ID, SECRET)
-    p = PowerDetails(s)
+    p = PowerEnergyDetails(s)
+    d = PowerEnergyDay(s)
 
     p.UpdateData()
+    d.UpdateData()
 
     '''
     s = Solaredge(TOKEN)
