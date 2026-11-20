@@ -70,6 +70,7 @@ def dumpData(data, kinds):
 class DB:
     def __init__(self, table):
         self.table = table
+        print('DB:__init__:', table)
         self.columns = ['exportenergy',      'exportpower',
                         'importenergy',      'importpower',
                         'consumptionenergy', 'consumptionpower',
@@ -130,21 +131,22 @@ class DB:
                   row['importEnergy'],       row['importPower'], 
                   row['consumptionEnergy'],  row['consumptionPower'],
                   row['productionEnergy'],   row['productionPower']]
-                  
         self.c.execute(insert, values)
         self.db.commit()
 
 class PowerEnergy(DB):
-    def __init__(self, table):
-        self.table = table
+    def __init__(self, table, interval = 'QUARTER_HOUR'):
+        self.table    = table
+        self.interval = interval
+        print('PowerEnergy:__init__:', table, interval)
         DB.__init__(self, self.table)
 
     def UpdateData(self):
-        (begin, finish) = getTimeRange(interval = 'QUARTER_HOUR')
+        (begin, finish) = getTimeRange(interval = self.interval)
         with MonitoringClient(oauth=self.s.auth) as client:
             power = client.get_meters_telemetry(self.s.siteid, begin,
-                                                finish, 'QUARTER_HOUR')
-        pp.pprint(power)
+                                                finish, self.interval)
+        #pp.pprint(power)
         self.UpdateDB(power)
 
     def UpdateDB(self, power):
@@ -191,44 +193,22 @@ class PowerEnergy(DB):
 
 class PowerEnergyDetails(PowerEnergy):
     def __init__(self, s):
-        self.s = s
-        self.table = 'power_energy_details'
-        PowerEnergy.__init__(self, self.table)
-
-    def UpdateData(self):
-        (begin, finish) = getTimeRange(interval = 'QUARTER_HOUR')
-        #power = self.s.get_power_details(siteid, begin, finish)
-        with MonitoringClient(oauth=self.s.auth) as client:
-            power = client.get_meters_telemetry(self.s.siteid, begin,
-                                                finish, 'QUARTER_HOUR'
-                                                )
-        #pp.pprint(power)
-        #print(power)
-        self.UpdateDB(power)
+        self.s        = s
+        self.table    = 'power_energy_details'
+        self.interval = 'QUARTER_HOUR'
+        PowerEnergy.__init__(self, self.table, interval = self.interval)
 
 class PowerEnergyDay(PowerEnergy):
     def __init__(self, s):
-        self.s = s
-        self.table = 'power_energy_day'
-        self.timeunit = 'DAY'
-        PowerEnergy.__init__(self, self.table)
-
-    def UpdateData(self):
-        (begin, finish) = getTimeRange(interval = self.timeunit)
-        #energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
-        with MonitoringClient(oauth=self.s.auth) as client:
-            energy = client.get_meters_telemetry(self.s.siteid, begin,
-                                                 finish, self.timeunit,
-                                                 '606324254')
-        #print(energy)
-        #pp.pprint(energy)
-        self.UpdateDB(energy)
-        
-class Inverter():
-    def __init__(self, s):
-        self.s         = s
-        self.table     = 'inverter_details'
-        self.timeunit  = 'QUARTER_HOUR'
+        self.s        = s
+        self.table    = 'power_energy_day'
+        self.interval = 'DAY'
+        PowerEnergy.__init__(self, self.table, interval = self.interval)
+    
+class IDB:
+    def __init__(self, table):
+        self.table = table
+        print('IDB:__init__:', table)
         self.columns   = ['power',           'energy',
                           'consumedacpower', 'consumedacenergy',
                           'voltage',         'current',
@@ -240,9 +220,6 @@ class Inverter():
                           'voltage'          : 'voltage',
                           'current'          : 'current',
                           'frequency'        : 'frequency'}
-        self.DBInit(self.table)
-
-    def DBInit(self, table):
         create = 'CREATE TABLE IF NOT EXISTS ' + self.table + '(\n' +\
             ' timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
             ' power                  REAL,\n' +\
@@ -276,7 +253,7 @@ class Inverter():
         for key in Row.keys():
             row[self.translate[key]] = Row[key]
         return row
-
+    
     def updateData(self, date, row):
         insert = 'INSERT OR REPLACE INTO ' + self.table + ' (timestamp, '   +\
             'power, energy, consumedacpower, consumedacenergy, voltage, '   +\
@@ -286,13 +263,22 @@ class Inverter():
                   row['consumedAcPower'], row['consumedAcEnergy'], 
                   row['voltage'],         row['current'],
                   row['frequency']]
+        self.c.execute(insert, values)
+        self.db.commit()
+        
+class Inverter(IDB):
+    def __init__(self, table, interval = 'QUARTER_HOUR'):
+        self.table     = table
+        self.interval  = interval
+        print('Inverter:__init__:', table, interval)
+        IDB.__init__(self, self.table)
         
     def UpdateData(self):
-        (begin, finish) = getTimeRange(interval = self.timeunit)
-        #energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.timeunit)
+        (begin, finish) = getTimeRange(interval = self.interval)
+        #energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.interval)
         with MonitoringClient(oauth=self.s.auth) as client:
             inverter = client.get_inverters_telemetry(self.s.siteid, begin,
-                                                 finish, self.timeunit)
+                                                 finish, self.interval)
         #print(energy)
         #pp.pprint(energy)
         self.UpdateDB(inverter)
@@ -338,8 +324,22 @@ class Inverter():
                               oldInfo.get(k, None), ' -> ', data[day][k], data[day])
             self.updateData(day, data[day])
 
+class InverterDetails(Inverter):
+    def __init__(self, s):
+        self.s = s
+        self.table = 'inverter_details'
+        self.interval  = 'QUARTER_HOUR'
+        Inverter.__init__(self, self.table, interval  = self.interval)
+
+class InverterDay(Inverter):
+    def __init__(self, s):
+        self.s = s
+        self.table = 'inverter_day'
+        self.interval  = 'DAY'
+        Inverter.__init__(self, self.table, interval  = self.interval)
+
         
-class Solaredge():
+class Solaredge:
     def __init__(self, siteid, client_id, client_secret):
         self.siteid        = siteid
         self.client_id     = client_id
@@ -359,14 +359,16 @@ class Solaredge():
         print('Solaredge:save: saved token', dt.datetime.now(dt.timezone.utc))
         
 def main():
-    s = Solaredge(SITEID, ID, SECRET)
-    p = PowerEnergyDetails(s)
-    d = PowerEnergyDay(s)
-    i = Inverter(s)
+    s  = Solaredge(SITEID, ID, SECRET)
+    pD = PowerEnergyDetails(s)
+    pd = PowerEnergyDay(s)
+    iD = InverterDetails(s)
+    id = InverterDay(s)
 
-    #### p.UpdateData()
-    #### d.UpdateData()
-    i.UpdateData()
+    pD.UpdateData()
+    pd.UpdateData()
+    iD.UpdateData()
+    id.UpdateData()
 
     '''
     s = Solaredge(TOKEN)
