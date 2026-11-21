@@ -73,7 +73,12 @@ def printHeader():
     print('             Period        KWh         KWh   % Prod      KWh      KWh       KWh')
     print('------------------- ----------  ---------- -------- -------- -------- ---------')
     #...... Maximum This Month      63.90       86.75     73.7    37.35    51.96     39.16
-
+def printHeaderTZ():
+    print('')
+    print('                          Production Consumption              Sold   Bought Prod-Used')
+    print('                   Period        KWh         KWh   % Prod      KWh      KWh       KWh')
+    print('------------------------- ----------  ---------- -------- -------- -------- ---------')
+    
 def makeSection(c, title, byDay = False, byMonth = False, year = None):
     start, end, name = getTimeInterval.getPeriod(title, year = year)
     #print(start, end, name)
@@ -288,15 +293,24 @@ def main():
     printHeader()
     makeSection(c, 'All')
 
-    return
+    #reportByHour(c)
 
-    reportByHour(c)
+    printHeaderTZ()
+    select_hr = 'SELECT ' \
+        'TOTAL(inverter_details.energy)                AS production, '        \
+        'TOTAL(power_energy_details.consumptionenergy) AS consumption, '       \
+        'TOTAL(power_energy_details.exportenergy)      AS feedin, '            \
+        'TOTAL(power_energy_details.importenergy)      AS purchased, '         \
+        'TOTAL(power_energy_details.consumptionenergy - '                      \
+        '      power_energy_details.importenergy) '                            \
+        '                                          AS selfconsumption,   '     \
+        'inverter_details.timestamp  '                                         \
+        'FROM power_energy_details JOIN inverter_details '                     \
+        '  ON inverter_details.timestamp = power_energy_details.timestamp '    \
+        'WHERE DATE(inverter_details.timestamp) == ? ' \
+        'GROUP BY STRFTIME("%H", inverter_details.timestamp) ' \
+        'ORDER BY inverter_details.timestamp;'
 
-    printHeader()
-    select_hr = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
-        'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, timestamp, ' +\
-        'TOTAL(selfconsumption) AS selfconsumption FROM power_energy_details WHERE ' +\
-        'DATE(timestamp) == ? GROUP BY STRFTIME("%H", timestamp) ORDER BY timestamp;'
     yesterday = getYesterday()
     c.execute(select_hr, (yesterday,))
     result = c.fetchall()
