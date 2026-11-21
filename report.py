@@ -11,7 +11,7 @@ from sys import path
 path.append(home + '/tools/')
 from shared import getTimeInterval
 
-DBname = home + '/tools/SolarEdge//SolarEdge.sql'
+DBname = home + '/tools/SolarEdge.2//SolarEdge.sql'
 debug = False
 
 translate = {'consumption' : 'Consumption', 'production' : 'Production' , \
@@ -29,11 +29,11 @@ def convert_datetime(val):
     return dt.datetime.fromisoformat(val.decode('utf-8').replace('T', ' '))
 
 def getYears(c):
-    select_min_yr = 'SELECT min(timestamp) AS min FROM energy_day;'
+    select_min_yr = 'SELECT min(timestamp) AS min FROM power_energy_day;'
     c.execute(select_min_yr)
     minYear = c.fetchone()
     first = dt.datetime.strptime(minYear['min'], '%Y-%m-%d %H:%M:%S')
-    select_max_yr = 'SELECT max(timestamp) AS max FROM energy_day;'
+    select_max_yr = 'SELECT max(timestamp) AS max FROM power_energy_day;'
     c.execute(select_max_yr)
     maxYear = c.fetchone()
     last = dt.datetime.strptime(maxYear['max'], '%Y-%m-%d %H:%M:%S')
@@ -78,19 +78,19 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
     select_sum = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
         'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, ' \
         'TOTAL(selfconsumption) AS selfconsumption, date(timestamp) AS date ' \
-        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+        'FROM power_energy_day WHERE timestamp >= ? AND timestamp <= ? '
     select_avg = 'SELECT AVG(production) AS production, AVG(consumption) AS consumption, ' \
         'AVG(feedin) AS feedin, AVG(purchased) AS purchased, ' \
         'AVG(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
-        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+        'FROM power_energy_day WHERE timestamp >= ? AND timestamp <= ? '
     select_min = 'SELECT MIN(production) AS production, MIN(consumption) AS consumption, ' \
         'MIN(feedin) AS feedin, MIN(purchased) AS purchased, ' \
         'MIN(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
-        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+        'FROM power_energy_day WHERE timestamp >= ? AND timestamp <= ? '
     select_max = 'SELECT MAX(production) AS production, MAX(consumption) AS consumption, ' \
         'MAX(feedin) AS feedin, MAX(purchased) AS purchased, ' \
         'MAX(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
-        'FROM energy_day WHERE timestamp >= ? AND timestamp <= ? '
+        'FROM power_energy_day WHERE timestamp >= ? AND timestamp <= ? '
     groupMonth = ' GROUP BY substr(timestamp,1, 7) ORDER BY timestamp DESC;'
     if byMonth:
         select_end = groupMonth
@@ -128,7 +128,7 @@ def reportByHour(c):
         ' FROM ( ' \
         '     SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
         '     date(timestamp) as date, STRFTIME("%H", timestamp) as hour ' \
-        '     FROM energy_details ' \
+        '     FROM power_energy_details ' \
         '     WHERE timestamp >= ? AND timestamp <= ? ' \
  	'     GROUP BY date, STRFTIME("%H", timestamp) ' \
 	' )		 AS hours '\
@@ -139,7 +139,7 @@ def reportByHour(c):
         ' FROM ( ' \
         '     SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
         '     date(timestamp) as date, STRFTIME("%H", timestamp) as hour ' \
-        '     FROM energy_details ' \
+        '     FROM power_energy_details ' \
         '     WHERE timestamp >= ? AND timestamp <= ? ' \
         '       AND STRFTIME("%H", timestamp) <= ? ' \
  	'     GROUP BY date ' \
@@ -207,6 +207,7 @@ def main():
     sqlite3.register_adapter(dt.datetime, adapt_datetime)
     sqlite3.register_converter("DATETIME", convert_datetime)
     db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
+    db.set_trace_callback(print)
     db.row_factory = sqlite3.Row
     c = db.cursor()
     #db.set_trace_callback(print)
@@ -215,14 +216,26 @@ def main():
         start, end, name = getTimeInterval.getPeriod(period)
         printHeader()
 
-        select = 'SELECT * FROM energy_day WHERE timestamp >= ? AND timestamp <= ? ' +\
-            'ORDER BY timestamp DESC;'
+        select = 'SELECT inverter_day.timestamp, '                   +\
+            'inverter_day.energy    AS Production, '                 +\
+            'power_energy_day.consumptionenergy AS Consumption, '    +\
+            'power_energy_day.exportenergy      AS FeedIn, '         +\
+            'power_energy_day.importenergy      AS Purchased, '      +\
+            'power_energy_day.consumptionenergy - '                  +\
+            'power_energy_day.importenergy '                         +\
+            '                                   AS SelfConsumption ' +\
+            'FROM power_energy_day JOIN inverter_day '               +\
+            ' ON inverter_day.timestamp = power_energy_day.timestamp ' +\
+            'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? ' +\
+            'ORDER BY inverter_day.timestamp DESC;'
+
         c.execute(select, (start, end))
         result = c.fetchall()
         for record in result:
             date = str(record['timestamp']).split(' ', maxsplit = 1)[0]
             print(fmtLine(date, record))
 
+    return
     printHeader()
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
         makeSection(c, period)
@@ -244,7 +257,7 @@ def main():
     printHeader()
     select_hr = 'SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' +\
         'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, timestamp, ' +\
-        'TOTAL(selfconsumption) AS selfconsumption FROM energy_details WHERE ' +\
+        'TOTAL(selfconsumption) AS selfconsumption FROM power_energy_details WHERE ' +\
         'DATE(timestamp) == ? GROUP BY STRFTIME("%H", timestamp) ORDER BY timestamp;'
     yesterday = getYesterday()
     c.execute(select_hr, (yesterday,))
