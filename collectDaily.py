@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import json
 import pprint as pp
+import argparse
 
 from solaredge import MonitoringClient, OAuth2, OAuthToken
 
@@ -29,8 +30,11 @@ def adapt_datetime(DT):
 def convert_datetime(val):
     return dt.datetime.fromisoformat(val).replace('T', ' ')
 
-def getTimeRange(interval = 'QUARTER_HOUR'):
-    now = dt.datetime.now(dt.timezone.utc)
+def getTimeRange(interval = 'QUARTER_HOUR', old = None):
+    if old is not None:
+        now = old
+    else:
+        now = dt.datetime.now(dt.timezone.utc).replace(microsecond = 0)
     if interval == 'QUARTER_HOUR':
         yesterday = now - dt.timedelta(hours = 12)
     elif interval == 'HOUR':
@@ -38,7 +42,7 @@ def getTimeRange(interval = 'QUARTER_HOUR'):
     else:
         yesterday = now.replace(hour = 0, minute = 0, second = 0, \
                                 microsecond = 0) - dt.timedelta(days = 30)
-    yesterday = now - dt.timedelta(hours = 1)
+    #yesterday = now - dt.timedelta(hours = 1)
 
     #
     # initial data load
@@ -70,7 +74,7 @@ def dumpData(data, kinds):
 class peDB:
     def __init__(self, table):
         self.table = table
-        print('peDB:__init__:', table)
+        #print('peDB:__init__:', table)
         self.columns = ['exportenergy',      'exportpower',
                         'importenergy',      'importpower',
                         'consumptionenergy', 'consumptionpower',
@@ -128,21 +132,32 @@ class peDB:
             'productionpower) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?);'
         print(date, row)
         values = [date, row['exportEnergy'], row['exportPower'],
-                  row['importEnergy'],       row['importPower'], 
+                  row['importEnergy'],       row['importPower'],
                   row['consumptionEnergy'],  row['consumptionPower'],
                   row['productionEnergy'],   row['productionPower']]
         self.c.execute(insert, values)
         self.db.commit()
 
+    def getOldestDate(self):
+        select = 'SELECT MIN(timestamp) AS oldest FROM ' + self.table + ';'
+        self.c.execute(select)
+        oldest = dt.datetime.fromisoformat(self.c.fetchone()['oldest'])
+        return oldest
+
+
 class PowerEnergy(peDB):
     def __init__(self, table, interval = 'QUARTER_HOUR'):
         self.table    = table
         self.interval = interval
-        print('PowerEnergy:__init__:', table, interval)
+        #print('PowerEnergy:__init__:', table, interval)
         peDB.__init__(self, self.table)
 
     def UpdateData(self):
-        (begin, finish) = getTimeRange(interval = self.interval)
+        if self.old:
+            old = self.getOldestDate()
+        else:
+            old = None
+        (begin, finish) = getTimeRange(interval = self.interval, old = old)
         with MonitoringClient(oauth=self.s.auth) as client:
             power = client.get_meters_telemetry(self.s.siteid, begin,
                                                 finish, self.interval)
@@ -192,23 +207,25 @@ class PowerEnergy(peDB):
 
 
 class PowerEnergyDetails(PowerEnergy):
-    def __init__(self, s):
+    def __init__(self, s, old):
         self.s        = s
         self.table    = 'power_energy_details'
         self.interval = 'QUARTER_HOUR'
+        self.old      = old
         PowerEnergy.__init__(self, self.table, interval = self.interval)
 
 class PowerEnergyDay(PowerEnergy):
-    def __init__(self, s):
+    def __init__(self, s, old):
         self.s        = s
         self.table    = 'power_energy_day'
         self.interval = 'DAY'
+        self.old      = old
         PowerEnergy.__init__(self, self.table, interval = self.interval)
-    
+
 class IDB:
     def __init__(self, table):
         self.table = table
-        print('IDB:__init__:', table)
+        #print('IDB:__init__:', table)
         self.columns   = ['power',           'energy',
                           'consumedacpower', 'consumedacenergy',
                           'voltage',         'current',
@@ -253,36 +270,45 @@ class IDB:
         for key in Row.keys():
             row[self.translate[key]] = Row[key]
         return row
-    
+
     def updateData(self, date, row):
         insert = 'INSERT OR REPLACE INTO ' + self.table + ' (timestamp, '   +\
             'power, energy, consumedacpower, consumedacenergy, voltage, '   +\
             'current, frequency) VALUES( ?, ?, ?, ?, ?, ?, ?, ?);'
         print(date, row)
         values = [date, row['power'],     row['energy'],
-                  row['consumedAcPower'], row['consumedAcEnergy'], 
+                  row['consumedAcPower'], row['consumedAcEnergy'],
                   row['voltage'],         row['current'],
                   row['frequency']]
         self.c.execute(insert, values)
         self.db.commit()
-        
+
+    def getOldestDate(self):
+        select = 'SELECT MIN(timestamp) AS oldest FROM ' + self.table + ';'
+        self.c.execute(select)
+        oldest = dt.datetime.fromisoformat(self.c.fetchone()['oldest'])
+        return oldest
+
 class Inverter(IDB):
     def __init__(self, table, interval = 'QUARTER_HOUR'):
         self.table     = table
         self.interval  = interval
-        print('Inverter:__init__:', table, interval)
+        #print('Inverter:__init__:', table, interval)
         IDB.__init__(self, self.table)
-        
+
     def UpdateData(self):
-        (begin, finish) = getTimeRange(interval = self.interval)
-        #energy = self.s.get_energy_details(siteid, begin, finish, time_unit = self.interval)
+        if self.old:
+            old = self.getOldestDate()
+        else:
+            old = None
+        (begin, finish) = getTimeRange(interval = self.interval, old = old)
         with MonitoringClient(oauth=self.s.auth) as client:
             inverter = client.get_inverters_telemetry(self.s.siteid, begin,
                                                  finish, self.interval)
         #print(energy)
         #pp.pprint(energy)
         self.UpdateDB(inverter)
-        
+
     def UpdateDB(self, power):
         inverters = []
         kinds     = []
@@ -325,20 +351,22 @@ class Inverter(IDB):
             self.updateData(day, data[day])
 
 class InverterDetails(Inverter):
-    def __init__(self, s):
-        self.s = s
-        self.table = 'inverter_details'
-        self.interval  = 'QUARTER_HOUR'
+    def __init__(self, s, old):
+        self.s        = s
+        self.table    = 'inverter_details'
+        self.interval = 'QUARTER_HOUR'
+        self.old      = old
         Inverter.__init__(self, self.table, interval  = self.interval)
 
 class InverterDay(Inverter):
-    def __init__(self, s):
-        self.s = s
-        self.table = 'inverter_day'
-        self.interval  = 'DAY'
+    def __init__(self, s, old):
+        self.s        = s
+        self.table    = 'inverter_day'
+        self.interval = 'DAY'
+        self.old      = old
         Inverter.__init__(self, self.table, interval  = self.interval)
 
-        
+
 class Solaredge:
     def __init__(self, siteid, client_id, client_secret):
         self.siteid        = siteid
@@ -351,24 +379,38 @@ class Solaredge:
             client_secret=self.client_secret,
             on_token_update=self.save,
         )
-        #print(self.siteid, self.client_id, self.client_secret, self.TOKEN_FILE)
-        #print(self.auth)
 
     def save(self, token: OAuthToken) -> None:
         self.TOKEN_FILE.write_text(json.dumps(token.to_dict()))
         print('Solaredge:save: saved token', dt.datetime.now(dt.timezone.utc))
-        
-def main():
-    s  = Solaredge(SITEID, ID, SECRET)
-    pD = PowerEnergyDetails(s)
-    pd = PowerEnergyDay(s)
-    iD = InverterDetails(s)
-    id = InverterDay(s)
 
-    pD.UpdateData()
-    pd.UpdateData()
-    iD.UpdateData()
-    id.UpdateData()
+def main():
+    globalParser = argparse.ArgumentParser(description = 'global parms')
+    globalParser.add_argument('-i', '--inverter_details',    default=False,
+                              action='store_true', help='inverter_details ')
+    globalParser.add_argument('-I', '--inverter_day',        default=False,
+                              action='store_true', help='inverter_day ')
+    globalParser.add_argument('-p', '--power_energy_details', default=False,
+                              action='store_true', help='power_energy_details ')
+    globalParser.add_argument('-P', '--power_energy_day',     default=False,
+                              action='store_true', help='power_energy_day ')
+    globalParser.add_argument('-o', '--old',                  default=False,
+                              action='store_true', help='collect older data ')
+    args = globalParser.parse_args()
+    print(args)
+    s  = Solaredge(SITEID, ID, SECRET)
+    pd = PowerEnergyDetails(s, args.old)
+    pD = PowerEnergyDay(s, args.old)
+    id = InverterDetails(s, args.old)
+    iD = InverterDay(s, args.old)
+    if args.power_energy_details:
+        pd.UpdateData()
+    if args.power_energy_day:
+        pD.UpdateData()
+    if args.inverter_details:
+        id.UpdateData()
+    if args.inverter_day:
+        iD.UpdateData()
 
 if __name__ == '__main__':
     main()
