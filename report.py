@@ -93,7 +93,7 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         '                                          AS selfconsumption,   ' \
         'inverter_day.timestamp                    AS date '               \
         'FROM power_energy_day JOIN inverter_day '                         \
-        'ON inverter_day.timestamp = power_energy_day.timestamp '          \
+        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
         'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
     select_avg = 'SELECT ' \
         'AVG(inverter_day.energy)                AS production, '          \
@@ -105,7 +105,7 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         '                                          AS selfconsumption,   ' \
         'inverter_day.timestamp                    AS date '               \
         'FROM power_energy_day JOIN inverter_day '                         \
-        'ON inverter_day.timestamp = power_energy_day.timestamp '          \
+        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
         'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
     select_min = 'SELECT ' \
         'MIN(inverter_day.energy)                AS production, '          \
@@ -117,7 +117,7 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         '                                          AS selfconsumption,   ' \
         'inverter_day.timestamp                    AS date '               \
         'FROM power_energy_day JOIN inverter_day '                         \
-        'ON inverter_day.timestamp = power_energy_day.timestamp '          \
+        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
         'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
     select_max = 'SELECT ' \
         'MAX(inverter_day.energy)                AS production, '          \
@@ -129,7 +129,7 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         '                                          AS selfconsumption,   ' \
         'inverter_day.timestamp                    AS date '               \
         'FROM power_energy_day JOIN inverter_day '                         \
-        'ON inverter_day.timestamp = power_energy_day.timestamp '          \
+        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
         'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
 
     groupMonth = ' GROUP BY substr(inverter_day.timestamp,1, 7) '          \
@@ -164,33 +164,42 @@ def reportByHour(c):
     ends   = {}
     for period in periods:
         starts[period], ends[period], name = getTimeInterval.getPeriod(period)
+
     selectHour = 'SELECT count(*) AS count, hours.date as date, hours.hour as hour, ' \
-        ' AVG(hours.production)  AS AvgProd,  MAX(hours.production)  AS MaxProd, ' \
-        ' AVG(hours.consumption) AS AvgUsed,  MAX(hours.consumption) AS MaxUsed  ' \
-        ' FROM ( ' \
-        '     SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
-        '     date(timestamp) as date, STRFTIME("%H", timestamp) as hour ' \
-        '     FROM power_energy_details ' \
-        '     WHERE timestamp >= ? AND timestamp <= ? ' \
- 	'     GROUP BY date, STRFTIME("%H", timestamp) ' \
-	' )		 AS hours '\
+        ' AVG(hours.production)  AS AvgProd,  MAX(hours.production)  AS MaxProd, '    \
+        ' AVG(hours.consumption) AS AvgUsed,  MAX(hours.consumption) AS MaxUsed  '    \
+        ' FROM ( '                                                                    \
+        ' SELECT '                                                                    \
+        'TOTAL(inverter_details.energy)                AS production, '               \
+        'TOTAL(power_energy_details.consumptionenergy) AS consumption, '              \
+        '     date(inverter_details.timestamp) as date, '                             \
+        ' STRFTIME("%H",inverter_details. timestamp) as hour '                        \
+        'FROM power_energy_details JOIN inverter_details '                            \
+        '  ON inverter_details.timestamp = power_energy_details.timestamp '           \
+        'WHERE inverter_details.timestamp >= ? AND inverter_details.timestamp <= ? '  \
+        'GROUP BY date, STRFTIME("%H", inverter_details.timestamp) '                  \
+        ' )		 AS hours '                                                   \
 	' GROUP BY hour ORDER BY hour;'
     selectCumm = 'SELECT count(*) AS count, hours.date as date, hours.hour as hour, ' \
-        ' AVG(hours.production)  AS AvgProd,  MAX(hours.production)  AS MaxProd, ' \
-        ' AVG(hours.consumption) AS AvgUsed,  MAX(hours.consumption) AS MaxUsed  ' \
-        ' FROM ( ' \
-        '     SELECT TOTAL(production) AS production, TOTAL(consumption) AS consumption, ' \
-        '     date(timestamp) as date, STRFTIME("%H", timestamp) as hour ' \
-        '     FROM power_energy_details ' \
-        '     WHERE timestamp >= ? AND timestamp <= ? ' \
-        '       AND STRFTIME("%H", timestamp) <= ? ' \
- 	'     GROUP BY date ' \
-	' )		 AS hours '\
+        ' AVG(hours.production)  AS AvgProd,  MAX(hours.production)  AS MaxProd, '    \
+        ' AVG(hours.consumption) AS AvgUsed,  MAX(hours.consumption) AS MaxUsed  '    \
+        ' FROM ( '                                                                    \
+        ' SELECT '                                                                    \
+        'TOTAL(inverter_details.energy)                AS production, '               \
+        'TOTAL(power_energy_details.consumptionenergy) AS consumption, '              \
+        '     date(inverter_details.timestamp) as date, '                             \
+        ' STRFTIME("%H",inverter_details. timestamp) as hour '                        \
+        'FROM power_energy_details JOIN inverter_details '                            \
+        '  ON inverter_details.timestamp = power_energy_details.timestamp '           \
+        'WHERE inverter_details.timestamp >= ? AND inverter_details.timestamp <= ? '  \
+        '  AND STRFTIME("%H", inverter_details.timestamp) <= ? ' \
+        'GROUP BY date '                                                              \
+        ' )		 AS hours '                                                   \
 	' GROUP BY hour ORDER BY hour;'
-
     hourData = {}
     for period in periods:
         hourData[period] = {}
+        print
         c.execute(selectHour, (starts[period], ends[period]))
         results = c.fetchall()
         for rec in results:
@@ -293,7 +302,7 @@ def main():
     printHeader()
     makeSection(c, 'All')
 
-    #reportByHour(c)
+    reportByHour(c)
 
     printHeaderTZ()
     select_hr = 'SELECT ' \
