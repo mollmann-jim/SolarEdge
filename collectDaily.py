@@ -67,10 +67,10 @@ def dumpData(data, kinds):
         print(s)
     print('============================================')
 
-class DB:
+class peDB:
     def __init__(self, table):
         self.table = table
-        print('DB:__init__:', table)
+        print('peDB:__init__:', table)
         self.columns = ['exportenergy',      'exportpower',
                         'importenergy',      'importpower',
                         'consumptionenergy', 'consumptionpower',
@@ -134,12 +134,12 @@ class DB:
         self.c.execute(insert, values)
         self.db.commit()
 
-class PowerEnergy(DB):
+class PowerEnergy(peDB):
     def __init__(self, table, interval = 'QUARTER_HOUR'):
         self.table    = table
         self.interval = interval
         print('PowerEnergy:__init__:', table, interval)
-        DB.__init__(self, self.table)
+        peDB.__init__(self, self.table)
 
     def UpdateData(self):
         (begin, finish) = getTimeRange(interval = self.interval)
@@ -369,19 +369,6 @@ def main():
     pd.UpdateData()
     iD.UpdateData()
     id.UpdateData()
-
-    '''
-    s = Solaredge(TOKEN)
-    p = PowerDetails(s)
-    eDay = EnergyDay(s)
-    eDet = EnergyDetails(s)
-    eDay.UpdateData()
-    eDet.UpdateData()
-    p.UpdateData()
-    '''
-
-
-
 
 if __name__ == '__main__':
     main()
