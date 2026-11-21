@@ -32,11 +32,13 @@ def getYears(c):
     select_min_yr = 'SELECT min(timestamp) AS min FROM power_energy_day;'
     c.execute(select_min_yr)
     minYear = c.fetchone()
-    first = dt.datetime.strptime(minYear['min'], '%Y-%m-%d %H:%M:%S')
+    #first = dt.datetime.strptime(minYear['min'], '%Y-%m-%d %H:%M:%S')
+    first = dt.datetime.fromisoformat(minYear['min'])
     select_max_yr = 'SELECT max(timestamp) AS max FROM power_energy_day;'
     c.execute(select_max_yr)
     maxYear = c.fetchone()
-    last = dt.datetime.strptime(maxYear['max'], '%Y-%m-%d %H:%M:%S')
+    #last = dt.datetime.strptime(maxYear['max'], '%Y-%m-%d %H:%M:%S')
+    last = dt.datetime.fromisoformat(maxYear['max'])
     return first, last
 
 def getYesterday():
@@ -79,6 +81,18 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         'TOTAL(feedin) AS feedin, TOTAL(purchased) AS purchased, ' \
         'TOTAL(selfconsumption) AS selfconsumption, date(timestamp) AS date ' \
         'FROM power_energy_day WHERE timestamp >= ? AND timestamp <= ? '
+    select_sum = 'SELECT ' \
+        'TOTAL(inverter_day.energy) AS production, '                              \
+        'TOTAL(power_energy_day.consumptionenergy) AS consumption, '             \
+        'TOTAL(power_energy_day.exportenergy)      AS feedin, '  \
+        'TOTAL(power_energy_day.importenergy)      AS purchased, ' \
+        'TOTAL(power_energy_day.consumptionenergy - power_energy_day.importenergy) '\
+        '                                          AS selfconsumption,   ' \
+        'inverter_day.timestamp                    AS date ' \
+        'FROM power_energy_day JOIN inverter_day '                \
+        'ON inverter_day.timestamp = power_energy_day.timestamp ' \
+        'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '   
+    '''
     select_avg = 'SELECT AVG(production) AS production, AVG(consumption) AS consumption, ' \
         'AVG(feedin) AS feedin, AVG(purchased) AS purchased, ' \
         'AVG(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
@@ -91,7 +105,10 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         'MAX(feedin) AS feedin, MAX(purchased) AS purchased, ' \
         'MAX(selfconsumption) AS selfconsumption , date(timestamp) AS date ' \
         'FROM power_energy_day WHERE timestamp >= ? AND timestamp <= ? '
-    groupMonth = ' GROUP BY substr(timestamp,1, 7) ORDER BY timestamp DESC;'
+    '''
+    select_avg = select_min = select_max = select_sum 
+    groupMonth = ' GROUP BY substr(inverter_day.timestamp,1, 7) ' \
+        'ORDER BY inverter_day.timestamp DESC;'
     if byMonth:
         select_end = groupMonth
     else:
@@ -107,7 +124,7 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
     for Sum, Avg, Min, Max in zip(*results):
         for Record, Title in zip([Sum, Avg, Min, Max], titles):
             if byMonth:
-                name = Record['date'][0:7]
+                name = str(Record['date'])[0:7]
             print(fmtLine(Title + name, Record))
         if byMonth:
             print('')
@@ -207,7 +224,7 @@ def main():
     sqlite3.register_adapter(dt.datetime, adapt_datetime)
     sqlite3.register_converter("DATETIME", convert_datetime)
     db = sqlite3.connect(DBname, detect_types=sqlite3.PARSE_DECLTYPES)
-    db.set_trace_callback(print)
+    #db.set_trace_callback(print)
     db.row_factory = sqlite3.Row
     c = db.cursor()
     #db.set_trace_callback(print)
@@ -235,7 +252,6 @@ def main():
             date = str(record['timestamp']).split(' ', maxsplit = 1)[0]
             print(fmtLine(date, record))
 
-    return
     printHeader()
     for period in ['This Week',  'Last Week', 'This Month', 'Last Month']:
         makeSection(c, period)
@@ -251,6 +267,8 @@ def main():
 
     printHeader()
     makeSection(c, 'All')
+
+    return
 
     reportByHour(c)
 
