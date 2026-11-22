@@ -1,0 +1,94 @@
+get_inverters_telemetry:
+   DAY or longer returns only:
+     energy, consumedAcEnergy
+     Production in V1 is energy
+     consumedacenergy ???
+     
+  2026-10-30T00:00:00-04:00||21979.0||2.0|||
+   
+CREATE TABLE inverter_details(
+ timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,
+ power                  REAL,
+ energy                 REAL,
+ consumedacpower        REAL,
+ consumedacenergy       REAL,
+ voltage                REAL,
+ current                REAL,
+ frequency              REAL 
+ );
+
+QUARTER_HOUR:
+2026-11-21T13:15:00-05:00|1329.0835|344.0|0.0|0.0|245.11108|5.474731|60.00422
+
+power, energy, consumedAcPower, consumedAcEnergy, voltage, current, frequency
+
+consumedAcEnergy : WH
+consumedAcPower  : W
+current          : AMPERE
+energy           : WH
+frequency        : HERTZ
+power            : W
+voltage          : VOLT
+
+============================================================================
+
+get_meters_telemetry:
+
+CREATE TABLE power_energy_day(
+ timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,
+ exportenergy      REAL,
+ exportpower       REAL,
+ importenergy      REAL,
+ importpower       REAL,
+ consumptionenergy REAL,
+ consumptionpower  REAL,
+ productionenergy  REAL,
+ productionpower   REAL
+
+
+2026-10-30T00:00:00-04:00|17922.0||8493.0||12548.0|||
+
+ exportenergy      Sold          WH  FeedIn
+ exportpower                     W
+ importenergy      Bought        WH  Purchased
+ importpower                     W
+ consumptionenergy Consumption   WH  
+ consumptionpower                W
+ productionenergy  
+ productionpower
+     Prod-Used = Consumption - Bought
+
+
+DAY only:
+  productionEnergy, consumptionEnergy, importEnergy, exportEnergy
+
+  2026-10-30T00:00:00-04:00|17922.0||8493.0||12548.0|||
+
+
+QUARTER_HOUR:
+  productionPower, productionEnergy, consumptionPower, consumptionEnergy, importPower, importEnergy, exportPower, exportEnergy
+
+2026-11-21T11:45:00-05:00|266.0|995.60614|0.0|0.0|212.0|850.0461||
+
+
+
+
+Rebuild tables:
+
+BEGIN TRANSACTION;
+CREATE TABLE power_energy_day_new(
+ timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,
+ exportenergy      REAL,
+ exportpower       REAL,
+ importenergy      REAL,
+ importpower       REAL,
+ consumptionenergy REAL,
+ consumptionpower  REAL,
+ productionenergy  REAL,
+ productionpower   REAL 
+ );
+INSERT INTO power_energy_day_new (timestamp, exportenergy, exportpower, importenergy, importpower, consumptionenergy, consumptionpower, productionenergy, productionpower )
+ SELECT timestamp, exportenergy, exportpower, importenergy, importpower, consumptionenergy, consumptionpower, productionenergy, productionpower FROM power_energy_day;
+ALTER TABLE power_energy_day RENAME TO power_energy_day_old;
+ALTER TABLE power_energy_day_new RENAME TO power_energy_day;
+COMMIT;
