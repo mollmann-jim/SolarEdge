@@ -25,10 +25,10 @@ DBname = home + '/tools/SolarEdge.2//SolarEdge.sql'
 debug = False
 
 def adapt_datetime(DT):
-    return DT.isoformat(sep=' ')
+    return DT.isoformat()
 
 def convert_datetime(val):
-    return dt.datetime.fromisoformat(val).replace('T', ' ')
+    return dt.datetime.fromisoformat(val)
 
 def getTimeRange(interval = 'QUARTER_HOUR', old = None):
     if old is not None:
@@ -88,7 +88,7 @@ class peDB:
                           'productionenergy' : 'productionEnergy',
                           'productionpower'  : 'productionPower'}
         create = 'CREATE TABLE IF NOT EXISTS ' + self.table + '(\n' +\
-            ' timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
+            ' timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
             ' exportenergy      REAL,\n' +\
             ' exportpower       REAL,\n' +\
             ' importenergy      REAL,\n' +\
@@ -238,7 +238,7 @@ class IDB:
                           'current'          : 'current',
                           'frequency'        : 'frequency'}
         create = 'CREATE TABLE IF NOT EXISTS ' + self.table + '(\n' +\
-            ' timestamp         DATETIME DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
+            ' timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP PRIMARY KEY,\n' +\
             ' power                  REAL,\n' +\
             ' energy                 REAL,\n' +\
             ' consumedacpower        REAL,\n' +\

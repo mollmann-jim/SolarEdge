@@ -4,6 +4,7 @@
 import datetime as dt
 import sqlite3
 import os
+import zoneinfo
 
 home = os.getenv('HOME')
 
@@ -23,10 +24,10 @@ Columns = ['Consumption', 'Production', 'Purchased', 'FeedIn', \
                         'SelfConsumption', 'Timestamp']
 
 def adapt_datetime(DT):
-    return DT.isoformat(sep=' ')
+    return DT.isoformat()
 
 def convert_datetime(val):
-    return dt.datetime.fromisoformat(val.decode('utf-8').replace('T', ' '))
+    return dt.datetime.fromisoformat(val.decode('utf-8'))
 
 def getYears(c):
     select_min_yr = 'SELECT min(timestamp) AS min FROM power_energy_day;'
