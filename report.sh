@@ -1,6 +1,6 @@
 #!/bin/bash
 #set -x
-logDir="$HOME/tools/SolarEdge/logs"
+logDir="$HOME/tools/SolarEdge.2/logs"
 log=$logDir/report.$(/bin/date +%F-%T | /usr/bin/tr : .);
 reportDir="$HOME/SynologyDrive/Reports.Daily/"
 reportName="SolarEdge"
@@ -13,7 +13,7 @@ if [[ "$HOSTNAME" != "jim4" ]]; then
     fi
 fi
 echo -e "------- $HOSTNAME --------- $(date) --------\n" > $log
-$HOME/tools/SolarEdge/report.py >> $log 2>&1
+$HOME/tools/SolarEdge.2/report.py >> $log 2>&1
 reportFile="$reportDir/$reportName.txt"
 cat $log | sed '1s/^/<div><tt>\n/g' | sed '$sZ$Z\n</tt></div>Zg' > $reportFile
 reportHistory="$reportDir/All/$reportName.$(basename -- "$log").txt"
