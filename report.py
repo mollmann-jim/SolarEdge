@@ -96,43 +96,9 @@ def makeSection(c, title, byDay = False, byMonth = False, year = None):
         'FROM power_energy_day JOIN inverter_day '                         \
         '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
         'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
-    select_avg = 'SELECT ' \
-        'AVG(inverter_day.energy)                AS production, '          \
-        'AVG(power_energy_day.consumptionenergy) AS consumption, '         \
-        'AVG(power_energy_day.exportenergy)      AS feedin, '              \
-        'AVG(power_energy_day.importenergy)      AS purchased, '           \
-        'AVG(power_energy_day.consumptionenergy - '                        \
-        '      power_energy_day.importenergy) '                            \
-        '                                          AS selfconsumption,   ' \
-        'inverter_day.timestamp                    AS date '               \
-        'FROM power_energy_day JOIN inverter_day '                         \
-        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
-        'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
-    select_min = 'SELECT ' \
-        'MIN(inverter_day.energy)                AS production, '          \
-        'MIN(power_energy_day.consumptionenergy) AS consumption, '         \
-        'MIN(power_energy_day.exportenergy)      AS feedin, '              \
-        'MIN(power_energy_day.importenergy)      AS purchased, '           \
-        'MIN(power_energy_day.consumptionenergy - '                        \
-        '      power_energy_day.importenergy) '                            \
-        '                                          AS selfconsumption,   ' \
-        'inverter_day.timestamp                    AS date '               \
-        'FROM power_energy_day JOIN inverter_day '                         \
-        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
-        'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
-    select_max = 'SELECT ' \
-        'MAX(inverter_day.energy)                AS production, '          \
-        'MAX(power_energy_day.consumptionenergy) AS consumption, '         \
-        'MAX(power_energy_day.exportenergy)      AS feedin, '              \
-        'MAX(power_energy_day.importenergy)      AS purchased, '           \
-        'MAX(power_energy_day.consumptionenergy - '                        \
-        '      power_energy_day.importenergy) '                            \
-        '                                          AS selfconsumption,   ' \
-        'inverter_day.timestamp                    AS date '               \
-        'FROM power_energy_day JOIN inverter_day '                         \
-        '  ON inverter_day.timestamp = power_energy_day.timestamp '        \
-        'WHERE inverter_day.timestamp >= ? AND inverter_day.timestamp <= ? '
-
+    select_avg = select_sum.replace('TOTAL', 'AVG')
+    select_min = select_sum.replace('TOTAL', 'MIN')
+    select_max = select_sum.replace('TOTAL', 'MAX')
     groupMonth = ' GROUP BY substr(inverter_day.timestamp,1, 7) '          \
         'ORDER BY inverter_day.timestamp DESC;'
     if byMonth:
