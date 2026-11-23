@@ -92,3 +92,12 @@ INSERT INTO power_energy_day_new (timestamp, exportenergy, exportpower, importen
 ALTER TABLE power_energy_day RENAME TO power_energy_day_old;
 ALTER TABLE power_energy_day_new RENAME TO power_energy_day;
 COMMIT;
+
+
+
+
+
+
+
+Modbus over TCP solar edge
+

@@ -130,7 +130,7 @@ class peDB:
             'exportenergy, exportpower, importenergy, importpower, '          +\
             'consumptionenergy,  consumptionpower, productionenergy, '        +\
             'productionpower) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?);'
-        print(date, row)
+        #print(date, row)
         values = [date, row['exportEnergy'], row['exportPower'],
                   row['importEnergy'],       row['importPower'],
                   row['consumptionEnergy'],  row['consumptionPower'],
@@ -275,7 +275,7 @@ class IDB:
         insert = 'INSERT OR REPLACE INTO ' + self.table + ' (timestamp, '   +\
             'power, energy, consumedacpower, consumedacenergy, voltage, '   +\
             'current, frequency) VALUES( ?, ?, ?, ?, ?, ?, ?, ?);'
-        print(date, row)
+        #print(date, row)
         values = [date, row['power'],     row['energy'],
                   row['consumedAcPower'], row['consumedAcEnergy'],
                   row['voltage'],         row['current'],
